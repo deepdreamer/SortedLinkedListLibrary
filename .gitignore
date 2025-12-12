@@ -1,0 +1,18 @@
+/vendor/
+/composer.lock
+/.phpunit.cache/
+.phpunit.result.cache
+/.idea/
+/.vscode/
+.env
+
+# ECS/PHPCS caches
+/.ecs_cache/
+.phpcs-cache
+
+# Docker stuff
+/.docker/
+!.dockerignore
+
+# Misc
+.DS_Store

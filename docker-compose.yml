@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  php-lib:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app:cached
+    # Override when running, this is just a default
+    command: tail -f /dev/null
