@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SortedLinkedListLibrary\Exceptions;
 
 class IndexOutOfRangeException extends \OutOfRangeException
@@ -9,4 +11,3 @@ class IndexOutOfRangeException extends \OutOfRangeException
         return new self("Index $index out of range");
     }
 }
-

@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class RangeQueriesTest extends TestCase
 {
@@ -261,4 +260,3 @@ class RangeQueriesTest extends TestCase
         $this->assertTrue($result->isEmpty());
     }
 }
-

@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class ReverseOperationsTest extends TestCase
 {
@@ -123,4 +122,3 @@ class ReverseOperationsTest extends TestCase
         $this->assertSame([5, 4, 3, 1], $list->toArray());
     }
 }
-

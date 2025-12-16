@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class BulkOperationsTest extends TestCase
 {
@@ -368,4 +367,3 @@ class BulkOperationsTest extends TestCase
         $this->assertSame(['c', 'b', 'a'], $list->toArray());
     }
 }
-

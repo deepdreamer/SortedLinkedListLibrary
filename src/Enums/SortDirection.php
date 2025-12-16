@@ -19,4 +19,3 @@ enum SortDirection: string
         return $this === self::DESC;
     }
 }
-

@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class MergeOperationsTest extends TestCase
 {
@@ -239,4 +238,3 @@ class MergeOperationsTest extends TestCase
         $this->assertCount(5, $list1);
     }
 }
-

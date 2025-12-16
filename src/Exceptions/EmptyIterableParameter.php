@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SortedLinkedListLibrary\Exceptions;
 
 class EmptyIterableParameter extends \InvalidArgumentException
 {
-    static function create(): self
+    public static function create(): self
     {
         return new self('Cannot create list from empty iterable.');
     }

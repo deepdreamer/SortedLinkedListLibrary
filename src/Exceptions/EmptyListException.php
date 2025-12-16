@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SortedLinkedListLibrary\Exceptions;
 
 class EmptyListException extends \UnderflowException
@@ -9,4 +11,3 @@ class EmptyListException extends \UnderflowException
         return new self('List is empty.');
     }
 }
-

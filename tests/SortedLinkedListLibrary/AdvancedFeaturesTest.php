@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class AdvancedFeaturesTest extends TestCase
 {
@@ -200,4 +199,3 @@ class AdvancedFeaturesTest extends TestCase
         $this->assertSame([5, 4, 3], $list->toArray());
     }
 }
-

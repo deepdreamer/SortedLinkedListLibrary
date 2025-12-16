@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class UtilityMethodsTest extends TestCase
 {
@@ -221,4 +220,3 @@ class UtilityMethodsTest extends TestCase
         $this->assertSame(600, $list->sum());
     }
 }
-

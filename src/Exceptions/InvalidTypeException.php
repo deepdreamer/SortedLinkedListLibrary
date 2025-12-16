@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SortedLinkedListLibrary\Exceptions;
 
 class InvalidTypeException extends \TypeError
@@ -14,4 +16,3 @@ class InvalidTypeException extends \TypeError
         return new self('This list only accepts string.');
     }
 }
-

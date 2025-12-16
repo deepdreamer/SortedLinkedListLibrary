@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SortedLinkedListLibrary\Exceptions;
 
 class DifferentListTypesException extends \InvalidArgumentException
@@ -9,4 +11,3 @@ class DifferentListTypesException extends \InvalidArgumentException
         return new self('Cannot merge lists of different types.');
     }
 }
-

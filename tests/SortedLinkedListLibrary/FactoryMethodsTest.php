@@ -6,7 +6,6 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 use SortedLinkedListLibrary\Exceptions\EmptyIterableParameter;
 
 class FactoryMethodsTest extends TestCase
@@ -107,4 +106,3 @@ class FactoryMethodsTest extends TestCase
         $this->assertSame([1, 2, 3, 5, 8], $list->toArray());
     }
 }
-

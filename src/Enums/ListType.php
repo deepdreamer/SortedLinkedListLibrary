@@ -19,4 +19,3 @@ enum ListType: string
         return $this === self::STRING;
     }
 }
-

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
-use SortedLinkedListLibrary\Enums\SortDirection;
-use SortedLinkedListLibrary\Enums\ListType;
 
 class SetOperationsTest extends TestCase
 {
@@ -248,4 +246,3 @@ class SetOperationsTest extends TestCase
         $this->assertCount(1, $list);
     }
 }
-

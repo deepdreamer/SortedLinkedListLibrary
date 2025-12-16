@@ -149,7 +149,6 @@ class SortedList implements SortedListInterface
      */
     public function merge(SortedListInterface $other): self
     {
-
         if ($other === $this || $other->isEmpty()) {
             return $this;
         }
