@@ -4,37 +4,39 @@ declare(strict_types=1);
 
 namespace SortedLinkedListLibrary;
 
+use SortedLinkedListLibrary\Enums\ListType;
+use SortedLinkedListLibrary\Enums\SortDirection;
+use SortedLinkedListLibrary\Exceptions\DifferentListTypesException;
+use SortedLinkedListLibrary\Exceptions\EmptyIterableParameter;
+use SortedLinkedListLibrary\Exceptions\EmptyListException;
+use SortedLinkedListLibrary\Exceptions\IndexOutOfRangeException;
+use SortedLinkedListLibrary\Exceptions\InvalidTypeException;
+
 class SortedList implements SortedListInterface
 {
-    public const TYPE_INT = 'int';
-    public const TYPE_STRING = 'string';
-
     private ?ListNode $head = null;
 
     /** @var non-negative-int $count */
     private int $count = 0;
 
     /**
-     * @param 'int'|'string' $type
-     * @param bool $ascending true = ascending, false = descending
+     * @param ListType $type
+     * @param SortDirection $sortDirection
      */
     public function __construct(
-        private string $type,
-        private bool $ascending = true,
+        private ListType $type,
+        private SortDirection $sortDirection = SortDirection::ASC,
     ) {
-        if (!\in_array($type, [self::TYPE_INT, self::TYPE_STRING], true)) {
-            throw new \InvalidArgumentException('Type must be "int" or "string".');
-        }
     }
 
-    public static function forInts(bool $ascending = true): self
+    public static function forInts(SortDirection $sortDirection = SortDirection::ASC): self
     {
-        return new self(self::TYPE_INT, $ascending);
+        return new self(ListType::INT, $sortDirection);
     }
 
-    public static function forStrings(bool $ascending = true): self
+    public static function forStrings(SortDirection $sortDirection = SortDirection::ASC): self
     {
-        return new self(self::TYPE_STRING, $ascending);
+        return new self(ListType::STRING, $sortDirection);
     }
 
     /**
@@ -53,7 +55,7 @@ class SortedList implements SortedListInterface
     public function get(int $index): int|string
     {
         if ($index < 0 || $index >= $this->count) {
-            throw new \OutOfRangeException("Index $index out of range");
+            throw IndexOutOfRangeException::create($index);
         }
 
         /** @var ListNode $current */
@@ -141,6 +143,63 @@ class SortedList implements SortedListInterface
         return false;
     }
 
+    /**
+     * Merge another sorted list (same type + direction) into this list in-place.
+     * Reuses existing nodes for O(1) extra space and O(n+m) time.
+     */
+    public function merge(SortedListInterface $other): self
+    {
+
+        if ($other === $this || $other->isEmpty()) {
+            return $this;
+        }
+
+
+        if ($this->type !== $other->type) {
+            throw DifferentListTypesException::create();
+        }
+
+        $this->head = $this->mergeNodes($this->head, $other->head);
+        $this->count += $other->count;
+
+        // Detach merged list to avoid shared nodes / double-counting.
+        $other->head = null;
+        $other->count = 0;
+
+        return $this;
+    }
+
+    /**
+     * Reverse the list in-place and flip the sort order.
+     * O(n) time complexity, O(1) space complexity.
+     */
+    public function reverse(): self
+    {
+        $this->sortDirection = $this->sortDirection === SortDirection::ASC
+            ? SortDirection::DESC
+            : SortDirection::ASC;
+
+        // Empty list or single element, no need to reverse
+        if ($this->head === null || $this->head->next === null) {
+            return $this;
+        }
+
+        $prev = null;
+        $current = $this->head;
+
+        // Reverse the linked list by reversing pointers
+        while ($current !== null) {
+            $next = $current->next; // Store the next node
+            $current->next = $prev; // Reverse the pointer
+            $prev = $current; // Move the pointers forward
+            $current = $next; // Move the current pointer forward
+        }
+
+        $this->head = $prev;
+
+        return $this;
+    }
+
     public function getIterator(): \Traversable
     {
         $current = $this->head;
@@ -165,12 +224,12 @@ class SortedList implements SortedListInterface
             }
 
             // Early-stop for ASC
-            if ($this->ascending && $cmp < 0) {
+            if ($this->sortDirection->isAscending() && $cmp < 0) {
                 return false;
             }
 
             // Early-stop for DESC
-            if (!$this->ascending && $cmp > 0) {
+            if ($this->sortDirection->isDescending() && $cmp > 0) {
                 return false;
             }
 
@@ -183,7 +242,7 @@ class SortedList implements SortedListInterface
     public function first(): int|string
     {
         if ($this->head === null) {
-            throw new \UnderflowException('List is empty.');
+            throw EmptyListException::create();
         }
 
         return $this->head->value;
@@ -193,7 +252,7 @@ class SortedList implements SortedListInterface
     {
         try {
             return $this->first();
-        } catch (\UnderflowException) {
+        } catch (EmptyListException) {
             return null;
         }
     }
@@ -201,7 +260,7 @@ class SortedList implements SortedListInterface
     public function last(): int|string
     {
         if ($this->head === null) {
-            throw new \UnderflowException('List is empty.');
+            throw EmptyListException::create();
         }
 
         $current = $this->head;
@@ -216,7 +275,7 @@ class SortedList implements SortedListInterface
     {
         try {
             return $this->last();
-        } catch (\UnderflowException) {
+        } catch (EmptyListException) {
             return null;
         }
     }
@@ -243,8 +302,8 @@ class SortedList implements SortedListInterface
     public function jsonSerialize(): array
     {
         return [
-            'type' => $this->type,        // "int" or "string"
-            'ascending' => $this->ascending,   // true / false
+            'type' => $this->type->value,        // "int" or "string"
+            'ascending' => $this->sortDirection->isAscending(),   // true / false
             'count' => $this->count,       // number of elements
             'values' => $this->toArray(),   // sorted values
         ];
@@ -260,11 +319,11 @@ class SortedList implements SortedListInterface
 
     private function assertType(int|string $value): void
     {
-        if ($this->type === self::TYPE_INT && !\is_int($value)) {
-            throw new \TypeError('This list only accepts int.');
+        if ($this->type === ListType::INT && !\is_int($value)) {
+            throw InvalidTypeException::forInt();
         }
-        if ($this->type === self::TYPE_STRING && !\is_string($value)) {
-            throw new \TypeError('This list only accepts string.');
+        if ($this->type === ListType::STRING && !\is_string($value)) {
+            throw InvalidTypeException::forString();
         }
     }
 
@@ -273,7 +332,7 @@ class SortedList implements SortedListInterface
      */
     private function compare(int|string $a, int|string $b): int
     {
-        if ($this->type === self::TYPE_INT) {
+        if ($this->type === ListType::INT) {
             /** @var int $a */
             /** @var int $b */
             return $a <=> $b;
@@ -291,8 +350,391 @@ class SortedList implements SortedListInterface
     {
         $cmp = $this->compare($a, $b);
 
-        return $this->ascending
+        return $this->sortDirection->isAscending()
             ? $cmp <= 0   // ascending: a <= b
             : $cmp >= 0;  // descending: a >= b
+    }
+
+    /**
+     * Merge two sorted linked lists (already validated to share type).
+     */
+    private function mergeNodes(?ListNode $a, ?ListNode $b): ?ListNode
+    {
+        if ($a === null) {
+            return $b;
+        }
+        if ($b === null) {
+            return $a;
+        }
+
+        // Initialize head
+        if ($this->shouldComeBefore($a->value, $b->value)) {
+            $head = $a;
+            $a = $a->next;
+        } else {
+            $head = $b;
+            $b = $b->next;
+        }
+
+        $tail = $head;
+
+        // Merge remainder
+        while ($a !== null && $b !== null) {
+            if ($this->shouldComeBefore($a->value, $b->value)) {
+                $tail->next = $a;
+                $a = $a->next;
+            } else {
+                $tail->next = $b;
+                $b = $b->next;
+            }
+            $tail = $tail->next;
+        }
+
+        // Attach leftovers
+        $tail->next = $a ?? $b;
+
+        return $head;
+    }
+
+    // ============================================================================
+    // Bulk operations
+    // ============================================================================
+
+    public function addAll(iterable $values): self
+    {
+        foreach ($values as $value) {
+            $this->add($value);
+        }
+
+        return $this;
+    }
+
+    public function removeAll(iterable $values): int
+    {
+        $removed = 0;
+        foreach ($values as $value) {
+            if ($this->remove($value)) {
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
+    public function clear(): self
+    {
+        $this->head = null;
+        $this->count = 0;
+        return $this;
+    }
+
+    // ============================================================================
+    // Search and filtering
+    // ============================================================================
+
+    public function find(callable $predicate): int|string|null
+    {
+        foreach ($this as $value) {
+            if ($predicate($value)) {
+                return $value;
+            }
+        }
+        return null;
+    }
+
+    public function findAll(callable $predicate): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $value) {
+            if ($predicate($value)) {
+                $result->add($value);
+            }
+        }
+        return $result;
+    }
+
+    public function filter(callable $predicate): self
+    {
+        $toRemove = [];
+        foreach ($this as $value) {
+            if (!$predicate($value)) {
+                $toRemove[] = $value;
+            }
+        }
+        foreach ($toRemove as $value) {
+            $this->remove($value);
+        }
+        return $this;
+    }
+
+    public function indexOf(int|string $value): int|null
+    {
+        $index = 0;
+        foreach ($this as $val) {
+            if ($val === $value) {
+                return $index;
+            }
+            $index++;
+        }
+        return null;
+    }
+
+    // ============================================================================
+    // Range queries
+    // ============================================================================
+
+    public function slice(int $offset, ?int $length = null): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        $index = 0;
+        $added = 0;
+        foreach ($this as $value) {
+            if ($index >= $offset) {
+                if ($length !== null && $added >= $length) {
+                    break;
+                }
+                $result->add($value);
+                $added++;
+            }
+            $index++;
+        }
+        return $result;
+    }
+
+    public function range(int|string $from, int|string $to): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $value) {
+            $cmpFrom = $this->compare($value, $from);
+            $cmpTo = $this->compare($value, $to);
+            if ($this->sortDirection->isAscending()) {
+                if ($cmpFrom >= 0 && $cmpTo <= 0) {
+                    $result->add($value);
+                }
+            } else {
+                if ($cmpFrom <= 0 && $cmpTo >= 0) {
+                    $result->add($value);
+                }
+            }
+        }
+        return $result;
+    }
+
+    public function valuesGreaterThan(int|string $value): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $val) {
+            $cmp = $this->compare($val, $value);
+            if (($this->sortDirection->isAscending() && $cmp > 0) || ($this->sortDirection->isDescending() && $cmp < 0)) {
+                $result->add($val);
+            }
+        }
+        return $result;
+    }
+
+    public function valuesLessThan(int|string $value): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $val) {
+            $cmp = $this->compare($val, $value);
+            if (($this->sortDirection->isAscending() && $cmp < 0) || ($this->sortDirection->isDescending() && $cmp > 0)) {
+                $result->add($val);
+            }
+        }
+        return $result;
+    }
+
+    // ============================================================================
+    // Set operations
+    // ============================================================================
+
+    public function union(SortedListInterface $other): self
+    {
+        $result = $this->copy();
+        foreach ($other as $value) {
+            if (!$result->contains($value)) {
+                $result->add($value);
+            }
+        }
+        return $result;
+    }
+
+    public function intersect(SortedListInterface $other): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $value) {
+            if ($other->contains($value)) {
+                $result->add($value);
+            }
+        }
+        return $result;
+    }
+
+    public function diff(SortedListInterface $other): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $value) {
+            if (!$other->contains($value)) {
+                $result->add($value);
+            }
+        }
+        return $result;
+    }
+
+    public function unique(): self
+    {
+        $seen = [];
+        $toRemove = [];
+        foreach ($this as $value) {
+            if (isset($seen[$value])) {
+                $toRemove[] = $value;
+            } else {
+                $seen[$value] = true;
+            }
+        }
+        foreach ($toRemove as $value) {
+            $this->remove($value);
+        }
+        return $this;
+    }
+
+    // ============================================================================
+    // Utility methods
+    // ============================================================================
+
+    public function copy(): self
+    {
+        $result = new self($this->type, $this->sortDirection);
+        foreach ($this as $value) {
+            $result->add($value);
+        }
+        return $result;
+    }
+
+    public function equals(SortedListInterface $other): bool
+    {
+        if ($this->count !== $other->count()) {
+            return false;
+        }
+        if ($this->type !== $other->getType()) {
+            return false;
+        }
+        $thisArray = $this->toArray();
+        $otherArray = $other->toArray();
+        return $thisArray === $otherArray;
+    }
+
+    public function min(): int|string|null
+    {
+        if ($this->isEmpty()) {
+            return null;
+        }
+        return $this->sortDirection->isAscending() ? $this->first() : $this->last();
+    }
+
+    public function max(): int|string|null
+    {
+        if ($this->isEmpty()) {
+            return null;
+        }
+        return $this->sortDirection->isAscending() ? $this->last() : $this->first();
+    }
+
+    public function sum(): int|float
+    {
+        $sum = 0;
+        foreach ($this as $value) {
+            $sum += $value;
+        }
+        return $sum;
+    }
+
+    // ============================================================================
+    // Factory/construction methods
+    // ============================================================================
+
+    public static function fromArray(array $values, SortDirection $sortDirection = SortDirection::ASC): self
+    {
+        if (empty($values)) {
+            return new self(ListType::INT, $sortDirection);
+        }
+        $firstValue = reset($values);
+        $type = \is_int($firstValue) ? ListType::INT : ListType::STRING;
+        $list = new self($type, $sortDirection);
+        foreach ($values as $value) {
+            $list->add($value);
+        }
+        return $list;
+    }
+
+    public static function fromIterable(iterable $values, SortDirection $sortDirection = SortDirection::ASC): self
+    {
+        $firstValue = null;
+        foreach ($values as $value) {
+            $firstValue = $value;
+            break;
+        }
+
+        if ($firstValue === null) {
+            throw EmptyIterableParameter::create();
+        }
+
+        $type = \is_int($firstValue) ? ListType::INT : ListType::STRING;
+        $list = new self($type, $sortDirection);
+        foreach ($values as $value) {
+            $list->add($value);
+        }
+
+        return $list;
+    }
+
+    public function removeAt(int $index): int|string
+    {
+        if ($index < 0 || $index >= $this->count) {
+            throw IndexOutOfRangeException::create($index);
+        }
+        $value = $this->get($index);
+        $this->remove($value);
+        return $value;
+    }
+
+    public function removeFirst(int $count = 1): array
+    {
+        $removed = [];
+        for ($i = 0; $i < $count && !$this->isEmpty(); $i++) {
+            $removed[] = $this->first();
+            $this->remove($this->first());
+        }
+        return $removed;
+    }
+
+    public function removeLast(int $count = 1): array
+    {
+        $removed = [];
+        for ($i = 0; $i < $count && !$this->isEmpty(); $i++) {
+            $removed[] = $this->last();
+            $this->remove($this->last());
+        }
+
+        return array_reverse($removed);
+    }
+
+    public function getSortOrder(): SortDirection
+    {
+        return $this->sortDirection;
+    }
+
+    public function getType(): ListType
+    {
+        return $this->type;
+    }
+
+    public function getOrNull(int $index): int|string|null
+    {
+        if ($index < 0 || $index >= $this->count) {
+            return null;
+        }
+
+        return $this->get($index);
     }
 }

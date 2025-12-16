@@ -7,11 +7,11 @@ RUN apk add --no-cache $PHPIZE_DEPS linux-headers \
     && docker-php-ext-enable xdebug \
     && apk del --no-cache $PHPIZE_DEPS linux-headers
 
-# Xdebug config
+# Xdebug config - only starts when explicitly triggered
 RUN { \
   echo "zend_extension=xdebug.so"; \
   echo "xdebug.mode=debug,develop,coverage"; \
-  echo "xdebug.start_with_request=yes"; \
+  echo "xdebug.start_with_request=trigger"; \
   echo "xdebug.discover_client_host=false"; \
   echo "xdebug.client_host=host.docker.internal"; \
   echo "xdebug.client_port=9003"; \

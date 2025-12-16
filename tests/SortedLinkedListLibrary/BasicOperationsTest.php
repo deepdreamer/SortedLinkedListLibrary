@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
+use SortedLinkedListLibrary\Enums\SortDirection;
+use SortedLinkedListLibrary\Enums\ListType;
 
-class SortedListTest extends TestCase
+class BasicOperationsTest extends TestCase
 {
     public function testIntsAreSortedAscendingByDefault(): void
     {
@@ -25,7 +27,7 @@ class SortedListTest extends TestCase
 
     public function testStringsCanBeSortedDescending(): void
     {
-        $list = SortedList::forStrings(ascending: false);
+        $list = SortedList::forStrings(SortDirection::DESC);
 
         $list->add('banana')
             ->add('apple')
@@ -124,3 +126,4 @@ class SortedListTest extends TestCase
         $this->assertCount(0, $list);
     }
 }
+
