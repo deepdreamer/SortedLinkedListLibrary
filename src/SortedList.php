@@ -541,7 +541,7 @@ class SortedList implements SortedListInterface
         }
 
         // Optimized path: reuse nodes when merging SortedList instances
-        if ($other instanceof self) {
+        if ($other instanceof SortedList) {
             $this->head = $this->mergeNodes($this->head, $other->head);
             $this->count += $other->count;
 

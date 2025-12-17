@@ -49,7 +49,6 @@ class UtilityMethodsTest extends TestCase
         $list2 = $list1->copy();
 
         $this->assertSame(['z', 'y', 'x'], $list2->toArray());
-        // Adding to copy should maintain descending order
         $list2->add('a');
         $this->assertSame(['z', 'y', 'x', 'a'], $list2->toArray());
     }

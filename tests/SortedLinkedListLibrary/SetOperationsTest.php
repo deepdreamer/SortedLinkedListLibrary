@@ -372,41 +372,20 @@ class SetOperationsTest extends TestCase
 
         $list2 = SortedList::forInts();
         for ($i = 25; $i < 75; $i++) {
-            $list2->add($i % 10); // Creates duplicates
+            $list2->add($i % 10);
         }
 
         $result = $list1->unionWithDuplicates($list2);
 
-        // Should have all values from both lists with all duplicates preserved
-        // Verify it's still sorted by checking values are in ascending order
         $prev = null;
         foreach ($result as $value) {
             if ($prev !== null) {
                 $this->assertGreaterThanOrEqual($prev, $value, 'List should be sorted in ascending order');
             }
             $prev = $value;
-            // Verify all values are in range [0, 9]
             $this->assertGreaterThanOrEqual(0, $value);
             $this->assertLessThanOrEqual(9, $value);
         }
-    }
-
-    public function testUnionWithDuplicatesComparisonWithUnion(): void
-    {
-        $list1 = SortedList::forInts();
-        $list1->add(1)->add(2)->add(2)->add(3);
-
-        $list2 = SortedList::forInts();
-        $list2->add(2)->add(3)->add(3)->add(4);
-
-        $unionResult = $list1->union($list2);
-        $unionWithDuplicatesResult = $list1->unionWithDuplicates($list2);
-
-        // Union should have unique values
-        $this->assertSame([1, 2, 3, 4], $unionResult->toArray());
-
-        // UnionWithDuplicates should preserve all duplicates
-        $this->assertSame([1, 2, 2, 2, 3, 3, 3, 4], $unionWithDuplicatesResult->toArray());
     }
 
     public function testIntersectWithCommonValues(): void

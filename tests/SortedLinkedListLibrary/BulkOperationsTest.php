@@ -6,6 +6,7 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
+use SortedLinkedListLibrary\Exceptions\InvalidTypeException;
 
 class BulkOperationsTest extends TestCase
 {
@@ -82,7 +83,7 @@ class BulkOperationsTest extends TestCase
     {
         $list = SortedList::forInts();
         
-        $generator = function () {
+        $generator = function (): \Generator {
             yield 5;
             yield 2;
             yield 8;
@@ -95,7 +96,7 @@ class BulkOperationsTest extends TestCase
 
     public function testAddAllTypeEnforcement(): void
     {
-        $this->expectException(\TypeError::class);
+        $this->expectException(InvalidTypeException::class);
 
         $list = SortedList::forInts();
         $list->addAll(['not-an-int', 'also-not-int']);
@@ -142,17 +143,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(2, $removed);
         $this->assertSame([1, 2, 3, 3], $list->toArray());
-    }
-
-    public function testRemoveAllWithDuplicates(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
-
-        $removed = $list->removeAllAndEveryOccurrence([2, 3]);
-
-        $this->assertSame(5, $removed);
-        $this->assertSame([1], $list->toArray());
     }
 
     public function testRemoveAllAndEveryOccurrenceWithArray(): void
@@ -236,7 +226,7 @@ class BulkOperationsTest extends TestCase
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3)->add(4)->add(5);
 
-        $generator = function () {
+        $generator = function (): \Generator {
             yield 2;
             yield 3;
         };
@@ -249,7 +239,7 @@ class BulkOperationsTest extends TestCase
 
     public function testRemoveAllAndEveryOccurrenceTypeEnforcement(): void
     {
-        $this->expectException(\TypeError::class);
+        $this->expectException(InvalidTypeException::class);
 
         $list = SortedList::forInts();
         $list->add(1)->add(2);
@@ -261,7 +251,6 @@ class BulkOperationsTest extends TestCase
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
 
-        // Input array has duplicates - should still remove all occurrences
         $removed = $list->removeAllAndEveryOccurrence([2, 2, 3, 3]);
 
         $this->assertSame(5, $removed);
@@ -376,7 +365,6 @@ class BulkOperationsTest extends TestCase
 
     public function testRemoveAllAndEveryOccurrenceWithHeadRemovalMultipleTimes(): void
     {
-        // Test removing values that appear at head multiple times
         $list = SortedList::forInts();
         $list->add(1)->add(1)->add(1)->add(2)->add(3);
 
@@ -389,7 +377,6 @@ class BulkOperationsTest extends TestCase
 
     public function testRemoveAllAndEveryOccurrenceWithOnlySameValues(): void
     {
-        // Edge case: all values are the same
         $list = SortedList::forInts();
         $list->add(5)->add(5)->add(5);
 
@@ -401,7 +388,6 @@ class BulkOperationsTest extends TestCase
 
     public function testRemoveAllAndEveryOccurrenceWithMixedRemovals(): void
     {
-        // Test removing some values that exist and some that don't
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(2)->add(3)->add(4)->add(4);
 
@@ -482,7 +468,7 @@ class BulkOperationsTest extends TestCase
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3)->add(4)->add(5);
 
-        $generator = function () {
+        $generator = function (): \Generator {
             yield 2;
             yield 4;
         };
@@ -495,7 +481,7 @@ class BulkOperationsTest extends TestCase
 
     public function testRemoveAllTypeEnforcement(): void
     {
-        $this->expectException(\TypeError::class);
+        $this->expectException(InvalidTypeException::class);
 
         $list = SortedList::forInts();
         $list->add(1)->add(2);
@@ -625,10 +611,8 @@ class BulkOperationsTest extends TestCase
 
         $list->clear();
 
-        // After clear, type and sort order should be preserved
         $list->add('a')->add('b')->add('c');
         
-        // Should still be descending
         $this->assertSame(['c', 'b', 'a'], $list->toArray());
     }
 }

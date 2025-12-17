@@ -11,8 +11,8 @@ class PerformanceTest extends TestCase
 {
     private const LARGE_SIZE = 10000;
     private const VERY_LARGE_SIZE = 50000;
-    private const MAX_ADD_TIME_SECONDS = 60.0;
-    private const MAX_MERGE_TIME_SECONDS = 30.0;
+    private const MAX_ADD_TIME_SECONDS = 2.0;
+    private const MAX_MERGE_TIME_SECONDS = 2.0;
     private const MAX_MEMORY_MB = 50;
     private const DEMO_SIZE = 3000; // Smaller size for limitation demonstration tests
 
@@ -67,7 +67,7 @@ class PerformanceTest extends TestCase
 
         // Adding reverse-sorted data (worst case for insertion)
         // Use smaller size for worst case to avoid timeout (O(n²) complexity)
-        $size = 3000;
+        $size = 30000;
         for ($i = $size; $i >= 0; $i--) {
             $list->add($i);
         }
@@ -89,8 +89,8 @@ class PerformanceTest extends TestCase
 
         // Populate with 50K elements each - using addAll for efficiency
         $halfSize = self::VERY_LARGE_SIZE / 2;
-        $list1->addAll(array_map(fn ($i) => $i * 2, range(0, $halfSize - 1)));
-        $list2->addAll(array_map(fn ($i) => $i * 2 + 1, range(0, $halfSize - 1)));
+        $list1->addAll(array_map(fn (int $i): int => $i * 2, range(0, $halfSize - 1)));
+        $list2->addAll(array_map(fn (int $i): int => $i * 2 + 1, range(0, $halfSize - 1)));
 
         $startTime = microtime(true);
         $list1->merge($list2);
@@ -175,14 +175,28 @@ class PerformanceTest extends TestCase
         $initialMemory = memory_get_usage(true);
         $list = SortedList::forInts();
 
-        // Add 100K elements - using addAll for efficiency
+        // Add 50K elements - using addAll for efficiency
         $list->addAll(range(0, self::VERY_LARGE_SIZE - 1));
 
         $finalMemory = memory_get_usage(true);
         $memoryUsedMB = ($finalMemory - $initialMemory) / (1024 * 1024);
 
-        // Each node should be ~32-40 bytes (value + next pointer + PHP object overhead)
-        // 100K * 40 = ~4MB, allow some overhead
+        // Memory calculation breakdown:
+        // Each linked list node requires:
+        //   - Value storage: PHP integers use zval structure (~16 bytes on 64-bit)
+        //   - Next pointer: 8 bytes (64-bit pointer to next node)
+        //   - PHP object overhead: zend_object structure, properties, etc. (~8-16 bytes)
+        // Total per node: approximately 32-40 bytes
+        //
+        // For 50,000 nodes: 50,000 × 40 bytes = 2,000,000 bytes ≈ 1.9 MB
+        //
+        // However, we allow up to 50 MB (MAX_MEMORY_MB) to account for:
+        //   - PHP's internal memory management overhead
+        //   - Memory fragmentation
+        //   - Temporary allocations during operations
+        //   - Additional internal data structures
+        // This generous limit ensures we catch memory leaks or excessive overhead
+        // while allowing for normal PHP memory management behavior
         $this->assertLessThan(
             self::MAX_MEMORY_MB,
             $memoryUsedMB,
@@ -197,7 +211,7 @@ class PerformanceTest extends TestCase
         $list = SortedList::forStrings();
 
         // Add 10K string elements - using addAll for efficiency
-        $list->addAll(array_map(fn ($i) => "string_" . $i, range(0, self::LARGE_SIZE - 1)));
+        $list->addAll(array_map(fn (int $i): string => "string_" . $i, range(0, self::LARGE_SIZE - 1)));
 
         $finalMemory = memory_get_usage(true);
         $memoryUsedMB = ($finalMemory - $initialMemory) / (1024 * 1024);
@@ -261,8 +275,8 @@ class PerformanceTest extends TestCase
             $list2 = SortedList::forInts();
 
             // Using addAll for efficiency
-            $list1->addAll(array_map(fn ($i) => $i * 2, range(0, $size - 1)));
-            $list2->addAll(array_map(fn ($i) => $i * 2 + 1, range(0, $size - 1)));
+            $list1->addAll(array_map(fn (int $i): int => $i * 2, range(0, $size - 1)));
+            $list2->addAll(array_map(fn (int $i): int => $i * 2 + 1, range(0, $size - 1)));
 
             $start = microtime(true);
             $list1->merge($list2);
@@ -469,7 +483,7 @@ class PerformanceTest extends TestCase
         $inventory->addAll($productCodes);
 
         // Filter for specific product
-        $product1 = $inventory->findAll(fn ($code) => $code === 'PROD001');
+        $product1 = $inventory->findAll(fn (string $code): bool => $code === 'PROD001');
 
         // Get unique products
         $uniqueProducts = $inventory->unique();
@@ -852,7 +866,7 @@ class PerformanceTest extends TestCase
         }
         
         // Filter should invalidate cache
-        $list->filter(fn(int|string $value): bool => (int) $value % 2 === 0);
+        $list->filter(fn (int|string $value): bool => (int) $value % 2 === 0);
         
         // Next add should work correctly
         $list->add(600);
@@ -953,7 +967,7 @@ class PerformanceTest extends TestCase
         $values = range(1, $size);
         shuffle($values);
 
-        $generator = function () use ($values) {
+        $generator = function () use ($values): \Generator {
             foreach ($values as $value) {
                 yield $value;
             }

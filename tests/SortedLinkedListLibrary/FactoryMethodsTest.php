@@ -12,22 +12,33 @@ use SortedLinkedListLibrary\Exceptions\EmptyIterableParameter;
 class FactoryMethodsTest extends TestCase
 {
     /**
-     * @return array<string, array{array<int|string>, array<int|string>}>
+     * @return array<string, array{
+     *     input: array<int|string>,
+     *     expected: array<int|string>
+     * }>
      */
     public static function fromArrayProvider(): array
     {
         return [
             'ints' => [
-                [5, 2, 8, 1, 3],
-                [1, 2, 3, 5, 8],
+                'input' => [5, 2, 8, 1, 3],
+                'expected' => [1, 2, 3, 5, 8],
+            ],
+            'duplicate ints' => [
+                'input' => [3, 1, 3, 2, 1],
+                'expected' => [1, 1, 2, 3, 3],
+            ],
+            'single element' => [
+                'input' => [42],
+                'expected' => [42],
             ],
             'empty array' => [
-                [],
-                [],
+                'input' => [],
+                'expected' => [],
             ],
             'strings' => [
-                ['zebra', 'apple', 'banana'],
-                ['apple', 'banana', 'zebra'],
+                'input' => ['zebra', 'apple', 'banana'],
+                'expected' => ['apple', 'banana', 'zebra'],
             ],
         ];
     }
@@ -51,20 +62,6 @@ class FactoryMethodsTest extends TestCase
         $this->assertSame([5, 4, 3, 2, 1], $list->toArray());
     }
 
-    public function testFromArrayWithDuplicates(): void
-    {
-        $list = SortedList::fromArray([3, 1, 3, 2, 1]);
-
-        $this->assertSame([1, 1, 2, 3, 3], $list->toArray());
-    }
-
-    public function testFromArrayWithSingleElement(): void
-    {
-        $list = SortedList::fromArray([42]);
-
-        $this->assertSame([42], $list->toArray());
-    }
-
     public function testFromIterableWithArray(): void
     {
         $list = SortedList::fromIterable([5, 2, 8, 1, 3]);
@@ -74,7 +71,7 @@ class FactoryMethodsTest extends TestCase
 
     public function testFromIterableWithGenerator(): void
     {
-        $generator = function () {
+        $generator = function (): \Generator {
             yield 5;
             yield 2;
             yield 8;
@@ -90,7 +87,7 @@ class FactoryMethodsTest extends TestCase
     {
         $this->expectException(EmptyIterableParameter::class);
 
-        $list = SortedList::fromIterable([]);
+        SortedList::fromIterable([]);
     }
 
     public function testFromIterableWithStrings(): void

@@ -4,7 +4,6 @@ FROM php:8.4-cli-alpine
 # Install build deps + linux-headers, build xdebug, then remove build deps again
 RUN apk add --no-cache $PHPIZE_DEPS linux-headers \
     && pecl install xdebug \
-    && docker-php-ext-enable xdebug \
     && apk del --no-cache $PHPIZE_DEPS linux-headers
 
 # Xdebug config - only starts when explicitly triggered

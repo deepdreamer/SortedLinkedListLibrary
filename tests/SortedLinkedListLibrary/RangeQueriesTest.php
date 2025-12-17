@@ -11,66 +11,72 @@ use SortedLinkedListLibrary\Enums\SortDirection;
 class RangeQueriesTest extends TestCase
 {
     /**
-     * @return array<string, array{callable(): SortedList, int, int|null, array<int|string>, bool}>
+     * @return array<string, array{
+     *     setup: callable(): SortedList,
+     *     offset: int,
+     *     length: int|null,
+     *     expected: array<int|string>,
+     *     shouldBeEmpty: bool
+     * }>
      */
     public static function sliceProvider(): array
     {
         return [
             'with offset' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
-                2,
-                null,
-                [3, 4, 5],
-                false,
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
+                'offset' => 2,
+                'length' => null,
+                'expected' => [3, 4, 5],
+                'shouldBeEmpty' => false,
             ],
             'with offset and length' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
-                1,
-                3,
-                [2, 3, 4],
-                false,
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
+                'offset' => 1,
+                'length' => 3,
+                'expected' => [2, 3, 4],
+                'shouldBeEmpty' => false,
             ],
             'with zero offset' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
-                0,
-                null,
-                [1, 2, 3],
-                false,
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3),
+                'offset' => 0,
+                'length' => null,
+                'expected' => [1, 2, 3],
+                'shouldBeEmpty' => false,
             ],
             'with length zero' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
-                1,
-                0,
-                [],
-                true, // isEmpty
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3),
+                'offset' => 1,
+                'length' => 0,
+                'expected' => [],
+                'shouldBeEmpty' => true,
             ],
             'with offset beyond length' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
-                10,
-                null,
-                [],
-                true, // isEmpty
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3),
+                'offset' => 10,
+                'length' => null,
+                'expected' => [],
+                'shouldBeEmpty' => true,
             ],
             'with length beyond remaining' => [
-                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
-                1,
-                100,
-                [2, 3],
-                false,
+                'setup' => fn (): SortedList => SortedList::forInts()->add(1)->add(2)->add(3),
+                'offset' => 1,
+                'length' => 100,
+                'expected' => [2, 3],
+                'shouldBeEmpty' => false,
             ],
             'with empty list' => [
-                fn () => SortedList::forInts(),
-                0,
-                5,
-                [],
-                true, // isEmpty
+                'setup' => fn (): SortedList => SortedList::forInts(),
+                'offset' => 0,
+                'length' => 5,
+                'expected' => [],
+                'shouldBeEmpty' => true,
             ],
             'with strings' => [
-                fn () => SortedList::forStrings()->add('apple')->add('banana')->add('cherry')->add('date'),
-                1,
-                2,
-                ['banana', 'cherry'],
-                false,
+                'setup' => fn (): SortedList => SortedList::forStrings()->add('apple')->add('banana')->add('cherry')->add('date'),
+                'offset' => 1,
+                'length' => 2,
+                'expected' => ['banana', 'cherry'],
+                'shouldBeEmpty' => false,
             ],
         ];
     }

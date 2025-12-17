@@ -14,8 +14,11 @@ class ReverseOperationsTest extends TestCase
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3)->add(4)->add(5);
 
+        $this->assertSame(SortDirection::ASC, $list->getSortOrder());
+
         $list->reverse();
 
+        $this->assertSame(SortDirection::DESC, $list->getSortOrder());
         $this->assertSame([5, 4, 3, 2, 1], $list->toArray());
     }
 
@@ -24,8 +27,11 @@ class ReverseOperationsTest extends TestCase
         $list = SortedList::forInts(SortDirection::DESC);
         $list->add(5)->add(4)->add(3)->add(2)->add(1);
 
+        $this->assertSame(SortDirection::DESC, $list->getSortOrder());
+
         $list->reverse();
 
+        $this->assertSame(SortDirection::ASC, $list->getSortOrder());
         $this->assertSame([1, 2, 3, 4, 5], $list->toArray());
     }
 
@@ -108,6 +114,7 @@ class ReverseOperationsTest extends TestCase
 
         // After reverse, it should be descending
         $list->reverse();
+        $this->assertSame(SortDirection::DESC, $list->getSortOrder());
         $this->assertSame([5, 3, 1], $list->toArray());
 
         // Adding a new value should maintain descending order

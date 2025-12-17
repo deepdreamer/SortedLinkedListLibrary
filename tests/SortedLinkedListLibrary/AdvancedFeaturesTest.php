@@ -6,6 +6,7 @@ namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
+use SortedLinkedListLibrary\Exceptions\IndexOutOfRangeException;
 
 class AdvancedFeaturesTest extends TestCase
 {
@@ -44,7 +45,7 @@ class AdvancedFeaturesTest extends TestCase
 
     public function testRemoveAtThrowsOnNegativeIndex(): void
     {
-        $this->expectException(\OutOfRangeException::class);
+        $this->expectException(IndexOutOfRangeException::class);
 
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3);
@@ -53,7 +54,7 @@ class AdvancedFeaturesTest extends TestCase
 
     public function testRemoveAtThrowsOnIndexOutOfRange(): void
     {
-        $this->expectException(\OutOfRangeException::class);
+        $this->expectException(IndexOutOfRangeException::class);
 
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3);
@@ -143,7 +144,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $removed = $list->removeLast(3);
 
-        // removeLast returns values in reverse order (as removed from end)
         $this->assertSame([3, 4, 5], $removed);
         $this->assertSame([1, 2], $list->toArray());
     }
@@ -155,7 +155,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $removed = $list->removeLast(10);
 
-        // removeLast returns values in reverse order
         $this->assertSame([1, 2, 3], $removed);
         $this->assertTrue($list->isEmpty());
     }
@@ -177,7 +176,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $removed = $list->removeLast(2);
 
-        // removeLast returns values in reverse order
         $this->assertSame(['banana', 'cherry'], $removed);
         $this->assertSame(['apple'], $list->toArray());
     }
@@ -189,7 +187,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $removed = $list->removeLast(2);
 
-        // In descending order, "last" means smallest values, returned in reverse order
         $this->assertSame([2, 1], $removed);
         $this->assertSame([5, 4, 3], $list->toArray());
     }
