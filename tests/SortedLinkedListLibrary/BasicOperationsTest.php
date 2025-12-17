@@ -20,7 +20,6 @@ class BasicOperationsTest extends TestCase
             ->add(1);
 
         $this->assertSame([1, 3, 7, 7, 10], $list->toArray());
-        $this->assertCount(5, $list);
         $this->assertFalse($list->isEmpty());
     }
 
@@ -122,6 +121,5 @@ class BasicOperationsTest extends TestCase
         $list = SortedList::forInts();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 }

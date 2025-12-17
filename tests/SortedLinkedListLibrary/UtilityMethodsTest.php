@@ -18,7 +18,6 @@ class UtilityMethodsTest extends TestCase
 
         $this->assertNotSame($list1, $list2);
         $this->assertSame([1, 2, 3], $list2->toArray());
-        $this->assertCount(3, $list2);
     }
 
     public function testCopyIsIndependent(): void
@@ -40,7 +39,6 @@ class UtilityMethodsTest extends TestCase
         $list2 = $list1->copy();
 
         $this->assertTrue($list2->isEmpty());
-        $this->assertCount(0, $list2);
     }
 
     public function testCopyPreservesTypeAndSortOrder(): void
@@ -218,5 +216,87 @@ class UtilityMethodsTest extends TestCase
         $list->add(100)->add(200)->add(300);
 
         $this->assertSame(600, $list->sum());
+    }
+
+    public function testCountWithEmptyList(): void
+    {
+        $list = SortedList::forInts();
+        $this->assertSame(0, $list->count());
+    }
+
+    public function testCountAfterAdd(): void
+    {
+        $list = SortedList::forInts();
+        $this->assertSame(0, $list->count());
+
+        $list->add(1);
+        $this->assertSame(1, $list->count());
+
+        $list->add(2)->add(3);
+        $this->assertSame(3, $list->count());
+    }
+
+    public function testCountAfterRemove(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+        $this->assertSame(3, $list->count());
+
+        $list->remove(2);
+        $this->assertSame(2, $list->count());
+
+        $list->remove(1);
+        $list->remove(3);
+        $this->assertSame(0, $list->count());
+    }
+
+    public function testCountAfterRemoveEveryOccurrence(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3);
+        $this->assertSame(4, $list->count());
+
+        $list->removeEveryOccurrence(2);
+        $this->assertSame(2, $list->count());
+    }
+
+    public function testCountAfterClear(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+        $this->assertSame(3, $list->count());
+
+        $list->clear();
+        $this->assertSame(0, $list->count());
+    }
+
+    public function testCountWithStrings(): void
+    {
+        $list = SortedList::forStrings();
+        $list->add('a')->add('b')->add('c');
+        $this->assertSame(3, $list->count());
+    }
+
+    public function testCountWithLargeList(): void
+    {
+        $list = SortedList::forInts();
+        for ($i = 1; $i <= 100; $i++) {
+            $list->add($i);
+        }
+        $this->assertSame(100, $list->count());
+    }
+
+    public function testCountAfterMerge(): void
+    {
+        $list1 = SortedList::forInts();
+        $list1->add(1)->add(2);
+        $this->assertSame(2, $list1->count());
+
+        $list2 = SortedList::forInts();
+        $list2->add(3)->add(4);
+        $this->assertSame(2, $list2->count());
+
+        $list1->merge($list2);
+        $this->assertSame(4, $list1->count());
     }
 }

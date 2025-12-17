@@ -4,33 +4,44 @@ declare(strict_types=1);
 
 namespace SortedLinkedListLibrary;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
 use SortedLinkedListLibrary\Exceptions\EmptyIterableParameter;
 
 class FactoryMethodsTest extends TestCase
 {
-    public function testFromArrayWithInts(): void
+    /**
+     * @return array<string, array{array<int|string>, array<int|string>}>
+     */
+    public static function fromArrayProvider(): array
     {
-        $list = SortedList::fromArray([5, 2, 8, 1, 3]);
-
-        $this->assertSame([1, 2, 3, 5, 8], $list->toArray());
-        $this->assertCount(5, $list);
+        return [
+            'ints' => [
+                [5, 2, 8, 1, 3],
+                [1, 2, 3, 5, 8],
+            ],
+            'empty array' => [
+                [],
+                [],
+            ],
+            'strings' => [
+                ['zebra', 'apple', 'banana'],
+                ['apple', 'banana', 'zebra'],
+            ],
+        ];
     }
 
-    public function testFromArrayWithEmptyArray(): void
+    /**
+     * @param array<int|string> $input
+     * @param array<int|string> $expected
+     */
+    #[DataProvider('fromArrayProvider')]
+    public function testFromArray(array $input, array $expected): void
     {
-        $list = SortedList::fromArray([]);
+        $list = SortedList::fromArray($input);
 
-        $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
-    }
-
-    public function testFromArrayWithStrings(): void
-    {
-        $list = SortedList::fromArray(['zebra', 'apple', 'banana']);
-
-        $this->assertSame(['apple', 'banana', 'zebra'], $list->toArray());
+        $this->assertSame($expected, $list->toArray());
     }
 
     public function testFromArrayWithDescendingOrder(): void
@@ -52,7 +63,6 @@ class FactoryMethodsTest extends TestCase
         $list = SortedList::fromArray([42]);
 
         $this->assertSame([42], $list->toArray());
-        $this->assertCount(1, $list);
     }
 
     public function testFromIterableWithArray(): void

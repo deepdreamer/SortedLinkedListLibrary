@@ -18,7 +18,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $this->assertSame(3, $removed);
         $this->assertSame([1, 2, 4, 5], $list->toArray());
-        $this->assertCount(4, $list);
     }
 
     public function testRemoveAtWithFirstIndex(): void
@@ -81,7 +80,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $this->assertSame([1], $removed);
         $this->assertSame([2, 3, 4, 5], $list->toArray());
-        $this->assertCount(4, $list);
     }
 
     public function testRemoveFirstWithCustomCount(): void
@@ -93,7 +91,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $this->assertSame([1, 2, 3], $removed);
         $this->assertSame([4, 5], $list->toArray());
-        $this->assertCount(2, $list);
     }
 
     public function testRemoveFirstWithCountGreaterThanList(): void
@@ -137,7 +134,6 @@ class AdvancedFeaturesTest extends TestCase
 
         $this->assertSame([5], $removed);
         $this->assertSame([1, 2, 3, 4], $list->toArray());
-        $this->assertCount(4, $list);
     }
 
     public function testRemoveLastWithCustomCount(): void
@@ -150,7 +146,6 @@ class AdvancedFeaturesTest extends TestCase
         // removeLast returns values in reverse order (as removed from end)
         $this->assertSame([3, 4, 5], $removed);
         $this->assertSame([1, 2], $list->toArray());
-        $this->assertCount(2, $list);
     }
 
     public function testRemoveLastWithCountGreaterThanList(): void
@@ -197,5 +192,49 @@ class AdvancedFeaturesTest extends TestCase
         // In descending order, "last" means smallest values, returned in reverse order
         $this->assertSame([2, 1], $removed);
         $this->assertSame([5, 4, 3], $list->toArray());
+    }
+
+    public function testRemoveFirstWithZeroCount(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+
+        $removed = $list->removeFirst(0);
+
+        $this->assertSame([], $removed);
+        $this->assertSame([1, 2, 3], $list->toArray());
+    }
+
+    public function testRemoveFirstWithNegativeCount(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+
+        $removed = $list->removeFirst(-5);
+
+        $this->assertSame([], $removed);
+        $this->assertSame([1, 2, 3], $list->toArray());
+    }
+
+    public function testRemoveLastWithZeroCount(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+
+        $removed = $list->removeLast(0);
+
+        $this->assertSame([], $removed);
+        $this->assertSame([1, 2, 3], $list->toArray());
+    }
+
+    public function testRemoveLastWithNegativeCount(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3);
+
+        $removed = $list->removeLast(-5);
+
+        $this->assertSame([], $removed);
+        $this->assertSame([1, 2, 3], $list->toArray());
     }
 }

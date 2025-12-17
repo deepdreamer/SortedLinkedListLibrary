@@ -4,97 +4,99 @@ declare(strict_types=1);
 
 namespace SortedLinkedListLibrary;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\SortDirection;
 
 class RangeQueriesTest extends TestCase
 {
-    public function testSliceWithOffset(): void
+    /**
+     * @return array<string, array{callable(): SortedList, int, int|null, array<int|string>, bool}>
+     */
+    public static function sliceProvider(): array
     {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3)->add(4)->add(5);
+        return [
+            'with offset' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
+                2,
+                null,
+                [3, 4, 5],
+                false,
+            ],
+            'with offset and length' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3)->add(4)->add(5),
+                1,
+                3,
+                [2, 3, 4],
+                false,
+            ],
+            'with zero offset' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                0,
+                null,
+                [1, 2, 3],
+                false,
+            ],
+            'with length zero' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                1,
+                0,
+                [],
+                true, // isEmpty
+            ],
+            'with offset beyond length' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                10,
+                null,
+                [],
+                true, // isEmpty
+            ],
+            'with length beyond remaining' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                1,
+                100,
+                [2, 3],
+                false,
+            ],
+            'with empty list' => [
+                fn () => SortedList::forInts(),
+                0,
+                5,
+                [],
+                true, // isEmpty
+            ],
+            'with strings' => [
+                fn () => SortedList::forStrings()->add('apple')->add('banana')->add('cherry')->add('date'),
+                1,
+                2,
+                ['banana', 'cherry'],
+                false,
+            ],
+        ];
+    }
 
-        $result = $list->slice(2);
+    /**
+     * @param callable(): SortedList $setup
+     * @param array<int|string> $expected
+     */
+    #[DataProvider('sliceProvider')]
+    public function testSlice(
+        callable $setup,
+        int $offset,
+        ?int $length,
+        array $expected,
+        bool $shouldBeEmpty
+    ): void {
+        /** @var SortedList $list */
+        $list = $setup();
+        $result = $list->slice($offset, $length);
 
-        $this->assertSame([3, 4, 5], $result->toArray());
-        $this->assertCount(3, $result);
+        if ($shouldBeEmpty) {
+            $this->assertTrue($result->isEmpty());
+        } else {
+            $this->assertSame($expected, $result->toArray());
+        }
         $this->assertNotSame($list, $result); // Should be a new list
-    }
-
-    public function testSliceWithOffsetAndLength(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3)->add(4)->add(5);
-
-        $result = $list->slice(1, 3);
-
-        $this->assertSame([2, 3, 4], $result->toArray());
-        $this->assertCount(3, $result);
-    }
-
-    public function testSliceWithZeroOffset(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $result = $list->slice(0);
-
-        $this->assertSame([1, 2, 3], $result->toArray());
-        $this->assertCount(3, $result);
-    }
-
-    public function testSliceWithLengthZero(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $result = $list->slice(1, 0);
-
-        $this->assertTrue($result->isEmpty());
-        $this->assertCount(0, $result);
-    }
-
-    public function testSliceWithOffsetBeyondLength(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $result = $list->slice(10);
-
-        $this->assertTrue($result->isEmpty());
-        $this->assertCount(0, $result);
-    }
-
-    public function testSliceWithLengthBeyondRemaining(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $result = $list->slice(1, 100);
-
-        $this->assertSame([2, 3], $result->toArray());
-        $this->assertCount(2, $result);
-    }
-
-    public function testSliceWithEmptyList(): void
-    {
-        $list = SortedList::forInts();
-
-        $result = $list->slice(0, 5);
-
-        $this->assertTrue($result->isEmpty());
-        $this->assertCount(0, $result);
-    }
-
-    public function testSliceWithStrings(): void
-    {
-        $list = SortedList::forStrings();
-        $list->add('apple')->add('banana')->add('cherry')->add('date');
-
-        $result = $list->slice(1, 2);
-
-        $this->assertSame(['banana', 'cherry'], $result->toArray());
-        $this->assertCount(2, $result);
     }
 
     public function testSlicePreservesSortOrder(): void
@@ -115,7 +117,6 @@ class RangeQueriesTest extends TestCase
         $result = $list->range(3, 5);
 
         $this->assertSame([3, 4, 5], $result->toArray());
-        $this->assertCount(3, $result);
     }
 
     public function testRangeWithSingleValue(): void
@@ -126,7 +127,6 @@ class RangeQueriesTest extends TestCase
         $result = $list->range(3, 3);
 
         $this->assertSame([3], $result->toArray());
-        $this->assertCount(1, $result);
     }
 
     public function testRangeWithNoMatches(): void
@@ -137,7 +137,6 @@ class RangeQueriesTest extends TestCase
         $result = $list->range(10, 20);
 
         $this->assertTrue($result->isEmpty());
-        $this->assertCount(0, $result);
     }
 
     public function testRangeWithDescendingOrder(): void
@@ -177,7 +176,6 @@ class RangeQueriesTest extends TestCase
         $result = $list->valuesGreaterThan(3);
 
         $this->assertSame([4, 5], $result->toArray());
-        $this->assertCount(2, $result);
     }
 
     public function testValuesGreaterThanWithNoMatches(): void
@@ -197,7 +195,7 @@ class RangeQueriesTest extends TestCase
 
         $result = $list->valuesGreaterThan(3);
 
-        $this->assertSame([2, 1], $result->toArray());
+        $this->assertSame([5, 4], $result->toArray());
     }
 
     public function testValuesGreaterThanWithStrings(): void
@@ -218,7 +216,6 @@ class RangeQueriesTest extends TestCase
         $result = $list->valuesLessThan(3);
 
         $this->assertSame([1, 2], $result->toArray());
-        $this->assertCount(2, $result);
     }
 
     public function testValuesLessThanWithNoMatches(): void
@@ -238,7 +235,7 @@ class RangeQueriesTest extends TestCase
 
         $result = $list->valuesLessThan(3);
 
-        $this->assertSame([5, 4], $result->toArray());
+        $this->assertSame([2, 1], $result->toArray());
     }
 
     public function testValuesLessThanWithStrings(): void

@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit
-        bootstrap="vendor/autoload.php"
-        colors="true"
->
+        <phpunit
+                bootstrap="vendor/autoload.php"
+                colors="true"
+                timeoutForLargeTests="900"
+        >
     <testsuites>
-        <testsuite name="Application Test Suite">
-            <directory>tests</directory>
+        <testsuite name="Unit Tests">
+            <directory>tests/SortedLinkedListLibrary</directory>
+            <exclude>tests/SortedLinkedListLibrary/PerformanceTest.php</exclude>
+        </testsuite>
+        <testsuite name="Performance Tests">
+            <file>tests/SortedLinkedListLibrary/PerformanceTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>

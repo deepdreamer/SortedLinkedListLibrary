@@ -6,8 +6,8 @@ namespace SortedLinkedListLibrary\Exceptions;
 
 class EmptyListException extends \UnderflowException
 {
-    public static function create(): self
+    public static function create(string $operation = 'operation'): self
     {
-        return new self('List is empty.');
+        return new self("Cannot perform $operation on an empty list. The list must contain at least one element.");
     }
 }

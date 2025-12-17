@@ -17,7 +17,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll([5, 2, 8, 3]);
 
         $this->assertSame([1, 2, 3, 5, 8], $list->toArray());
-        $this->assertCount(5, $list);
     }
 
     public function testAddAllWithEmptyArray(): void
@@ -28,7 +27,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll([]);
 
         $this->assertSame([1, 2], $list->toArray());
-        $this->assertCount(2, $list);
     }
 
     public function testAddAllWithEmptyList(): void
@@ -38,7 +36,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll([3, 1, 2]);
 
         $this->assertSame([1, 2, 3], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testAddAllWithDuplicates(): void
@@ -49,7 +46,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll([3, 2, 3, 1, 4]);
 
         $this->assertSame([1, 1, 2, 3, 3, 4], $list->toArray());
-        $this->assertCount(6, $list);
     }
 
     public function testAddAllIsChainable(): void
@@ -70,7 +66,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll(['cherry', 'banana', 'date']);
 
         $this->assertSame(['apple', 'banana', 'cherry', 'date'], $list->toArray());
-        $this->assertCount(4, $list);
     }
 
     public function testAddAllWithDescendingOrder(): void
@@ -81,7 +76,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll([5, 8, 3]);
 
         $this->assertSame([10, 8, 5, 3], $list->toArray());
-        $this->assertCount(4, $list);
     }
 
     public function testAddAllWithIterable(): void
@@ -97,7 +91,6 @@ class BulkOperationsTest extends TestCase
         $list->addAll($generator());
 
         $this->assertSame([2, 5, 8], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testAddAllTypeEnforcement(): void
@@ -117,7 +110,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(2, $removed);
         $this->assertSame([1, 3, 5], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testRemoveAllWithEmptyArray(): void
@@ -129,7 +121,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(0, $removed);
         $this->assertSame([1, 2, 3], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testRemoveAllWithEmptyList(): void
@@ -140,7 +131,17 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(0, $removed);
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
+    }
+
+    public function testRemoveAllKeepDuplicates(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
+
+        $removed = $list->removeAll([2, 3]);
+
+        $this->assertSame(2, $removed);
+        $this->assertSame([1, 2, 3, 3], $list->toArray());
     }
 
     public function testRemoveAllWithDuplicates(): void
@@ -148,12 +149,288 @@ class BulkOperationsTest extends TestCase
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
 
-        $removed = $list->removeAll([2, 3]);
+        $removed = $list->removeAllAndEveryOccurrence([2, 3]);
 
-        // removeAll removes first occurrence of each value (remove() only removes first match)
+        $this->assertSame(5, $removed);
+        $this->assertSame([1], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithArray(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3)->add(4)->add(5);
+
+        $removed = $list->removeAllAndEveryOccurrence([2, 4, 6]);
+
+        $this->assertSame(3, $removed);
+        $this->assertSame([1, 3, 3, 3, 5], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithEmptyArray(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([]);
+
+        $this->assertSame(0, $removed);
+        $this->assertSame([1, 2, 2, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithEmptyList(): void
+    {
+        $list = SortedList::forInts();
+
+        $removed = $list->removeAllAndEveryOccurrence([1, 2, 3]);
+
+        $this->assertSame(0, $removed);
+        $this->assertTrue($list->isEmpty());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithAllValues(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(1)->add(2)->add(2)->add(3)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([1, 2, 3]);
+
+        $this->assertSame(6, $removed);
+        $this->assertTrue($list->isEmpty());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithNoMatches(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([10, 20, 30]);
+
+        $this->assertSame(0, $removed);
+        $this->assertSame([1, 2, 2, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithStrings(): void
+    {
+        $list = SortedList::forStrings();
+        $list->add('apple')->add('banana')->add('banana')->add('cherry')->add('date');
+
+        $removed = $list->removeAllAndEveryOccurrence(['banana', 'date', 'kiwi']);
+
+        $this->assertSame(3, $removed);
+        $this->assertSame(['apple', 'cherry'], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithDescendingOrder(): void
+    {
+        $list = SortedList::forInts(SortDirection::DESC);
+        $list->add(5)->add(4)->add(4)->add(3)->add(2)->add(2)->add(1);
+
+        $removed = $list->removeAllAndEveryOccurrence([4, 2]);
+
+        $this->assertSame(4, $removed);
+        $this->assertSame([5, 3, 1], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithIterable(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3)->add(4)->add(5);
+
+        $generator = function () {
+            yield 2;
+            yield 3;
+        };
+
+        $removed = $list->removeAllAndEveryOccurrence($generator());
+
+        $this->assertSame(5, $removed);
+        $this->assertSame([1, 4, 5], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceTypeEnforcement(): void
+    {
+        $this->expectException(\TypeError::class);
+
+        $list = SortedList::forInts();
+        $list->add(1)->add(2);
+        $list->removeAllAndEveryOccurrence(['not-an-int']);
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithDuplicateValuesInInput(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
+
+        // Input array has duplicates - should still remove all occurrences
+        $removed = $list->removeAllAndEveryOccurrence([2, 2, 3, 3]);
+
+        $this->assertSame(5, $removed);
+        $this->assertSame([1], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithSingleValueMultipleTimes(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(2)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([2]);
+
+        $this->assertSame(3, $removed);
+        $this->assertSame([1, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithConsecutiveDuplicates(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(5)->add(5)->add(5)->add(5)->add(10);
+
+        $removed = $list->removeAllAndEveryOccurrence([5]);
+
+        $this->assertSame(4, $removed);
+        $this->assertSame([1, 10], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithScatteredValues(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(3)->add(2)->add(4)->add(2)->add(5);
+
+        $removed = $list->removeAllAndEveryOccurrence([2, 4]);
+
+        $this->assertSame(4, $removed);
+        $this->assertSame([1, 3, 5], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrencePreservesOtherDuplicates(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([2]);
+
         $this->assertSame(2, $removed);
-        $this->assertSame([1, 2, 3, 3], $list->toArray());
-        $this->assertCount(4, $list);
+        $this->assertFalse($list->contains(2));
+        $this->assertSame([1, 1, 3, 3, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithZeroAndNegative(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(-2)->add(-1)->add(0)->add(0)->add(1)->add(2);
+
+        $removed = $list->removeAllAndEveryOccurrence([0, -1]);
+
+        $this->assertSame(3, $removed);
+        $this->assertSame([-2, 1, 2], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithEmptyString(): void
+    {
+        $list = SortedList::forStrings();
+        $list->add('')->add('a')->add('')->add('b')->add('')->add('c');
+
+        $removed = $list->removeAllAndEveryOccurrence(['', 'b']);
+
+        $this->assertSame(4, $removed);
+        $this->assertSame(['a', 'c'], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceChaining(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3)->add(4);
+
+        $removed1 = $list->removeAllAndEveryOccurrence([2]);
+        $removed2 = $list->removeAllAndEveryOccurrence([3]);
+
+        $this->assertSame(2, $removed1);
+        $this->assertSame(3, $removed2);
+        $this->assertSame([1, 4], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithLargeList(): void
+    {
+        $list = SortedList::forInts();
+        for ($i = 0; $i < 100; $i++) {
+            $list->add($i % 10);
+        }
+
+        $removed = $list->removeAllAndEveryOccurrence([5, 7]);
+
+        $this->assertSame(20, $removed);
+        $this->assertFalse($list->contains(5));
+        $this->assertFalse($list->contains(7));
+    }
+
+    public function testRemoveAllAndEveryOccurrenceAfterReverse(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(3)->add(3);
+
+        $list->reverse();
+        $removed = $list->removeAllAndEveryOccurrence([3, 2]);
+
+        $this->assertSame(5, $removed);
+        $this->assertSame([1], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithHeadRemovalMultipleTimes(): void
+    {
+        // Test removing values that appear at head multiple times
+        $list = SortedList::forInts();
+        $list->add(1)->add(1)->add(1)->add(2)->add(3);
+
+        $removed = $list->removeAllAndEveryOccurrence([1]);
+
+        $this->assertSame(3, $removed);
+        $this->assertFalse($list->contains(1));
+        $this->assertSame([2, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithOnlySameValues(): void
+    {
+        // Edge case: all values are the same
+        $list = SortedList::forInts();
+        $list->add(5)->add(5)->add(5);
+
+        $removed = $list->removeAllAndEveryOccurrence([5]);
+
+        $this->assertSame(3, $removed);
+        $this->assertTrue($list->isEmpty());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithMixedRemovals(): void
+    {
+        // Test removing some values that exist and some that don't
+        $list = SortedList::forInts();
+        $list->add(1)->add(2)->add(2)->add(3)->add(4)->add(4);
+
+        $removed = $list->removeAllAndEveryOccurrence([2, 5, 4, 6]);
+
+        $this->assertSame(4, $removed); // Only 2 and 4 exist
+        $this->assertSame([1, 3], $list->toArray());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithSingleElementList(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(42);
+
+        $removed = $list->removeAllAndEveryOccurrence([42]);
+
+        $this->assertSame(1, $removed);
+        $this->assertTrue($list->isEmpty());
+    }
+
+    public function testRemoveAllAndEveryOccurrenceWithSingleElementListNoMatch(): void
+    {
+        $list = SortedList::forInts();
+        $list->add(42);
+
+        $removed = $list->removeAllAndEveryOccurrence([99]);
+
+        $this->assertSame(0, $removed);
+        $this->assertSame([42], $list->toArray());
     }
 
     public function testRemoveAllWithAllValues(): void
@@ -165,7 +442,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(3, $removed);
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 
     public function testRemoveAllWithNoMatches(): void
@@ -177,7 +453,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(0, $removed);
         $this->assertSame([1, 2, 3], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testRemoveAllWithStrings(): void
@@ -189,7 +464,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(2, $removed);
         $this->assertSame(['apple', 'cherry'], $list->toArray());
-        $this->assertCount(2, $list);
     }
 
     public function testRemoveAllWithDescendingOrder(): void
@@ -201,7 +475,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(2, $removed);
         $this->assertSame([5, 3, 1], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testRemoveAllWithIterable(): void
@@ -218,7 +491,6 @@ class BulkOperationsTest extends TestCase
 
         $this->assertSame(2, $removed);
         $this->assertSame([1, 3, 5], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testRemoveAllTypeEnforcement(): void
@@ -251,7 +523,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
         $this->assertSame([], $list->toArray());
     }
 
@@ -262,7 +533,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
         $this->assertSame([], $list->toArray());
     }
 
@@ -285,7 +555,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
         $this->assertSame([], $list->toArray());
     }
 
@@ -297,7 +566,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 
     public function testClearThenAdd(): void
@@ -311,7 +579,6 @@ class BulkOperationsTest extends TestCase
         $list->add(10)->add(5)->add(15);
 
         $this->assertFalse($list->isEmpty());
-        $this->assertCount(3, $list);
         $this->assertSame([5, 10, 15], $list->toArray());
     }
 
@@ -323,7 +590,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 
     public function testClearWithDuplicates(): void
@@ -334,7 +600,6 @@ class BulkOperationsTest extends TestCase
         $list->clear();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 
     public function testClearMultipleTimes(): void

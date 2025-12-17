@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SortedLinkedListLibrary;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SortedLinkedListLibrary\Enums\ListType;
 use SortedLinkedListLibrary\Enums\SortDirection;
@@ -94,63 +95,72 @@ class QueryMethodsTest extends TestCase
         $this->assertSame(ListType::INT, $list->getType());
     }
 
-    public function testGetOrNullWithValidIndex(): void
+    public function testGetAtOrNullWithValidIndex(): void
     {
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3)->add(4)->add(5);
 
-        $this->assertSame(3, $list->getOrNull(2));
-        $this->assertSame(1, $list->getOrNull(0));
-        $this->assertSame(5, $list->getOrNull(4));
+        $this->assertSame(3, $list->getAtOrNull(2));
+        $this->assertSame(1, $list->getAtOrNull(0));
+        $this->assertSame(5, $list->getAtOrNull(4));
     }
 
-    public function testGetOrNullWithNegativeIndex(): void
+    /**
+     * @return array<string, array{callable(): SortedList, int, int|string|null}>
+     */
+    public static function getAtOrNullEdgeCasesProvider(): array
+    {
+        return [
+            'negative index' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                -1,
+                null,
+            ],
+            'index out of range' => [
+                fn () => SortedList::forInts()->add(1)->add(2)->add(3),
+                10,
+                null,
+            ],
+            'empty list' => [
+                fn () => SortedList::forInts(),
+                0,
+                null,
+            ],
+            'with strings' => [
+                fn () => SortedList::forStrings()->add('apple')->add('banana')->add('cherry'),
+                1,
+                'banana',
+            ],
+            'descending order' => [
+                fn () => SortedList::forInts(SortDirection::DESC)->add(5)->add(4)->add(3)->add(2)->add(1),
+                2,
+                3,
+            ],
+        ];
+    }
+
+    /**
+     * @param callable(): SortedList $setup
+     */
+    #[DataProvider('getAtOrNullEdgeCasesProvider')]
+    public function testGetAtOrNullEdgeCases(
+        callable $setup,
+        int $index,
+        int|string|null $expected
+    ): void {
+        /** @var SortedList $list */
+        $list = $setup();
+        $this->assertSame($expected, $list->getAtOrNull($index));
+    }
+
+    public function testGetAtOrNullAtBoundary(): void
     {
         $list = SortedList::forInts();
         $list->add(1)->add(2)->add(3);
 
-        $this->assertNull($list->getOrNull(-1));
-    }
-
-    public function testGetOrNullWithIndexOutOfRange(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $this->assertNull($list->getOrNull(10));
-    }
-
-    public function testGetOrNullWithEmptyList(): void
-    {
-        $list = SortedList::forInts();
-
-        $this->assertNull($list->getOrNull(0));
-    }
-
-    public function testGetOrNullWithStrings(): void
-    {
-        $list = SortedList::forStrings();
-        $list->add('apple')->add('banana')->add('cherry');
-
-        $this->assertSame('banana', $list->getOrNull(1));
-    }
-
-    public function testGetOrNullWithDescendingOrder(): void
-    {
-        $list = SortedList::forInts(SortDirection::DESC);
-        $list->add(5)->add(4)->add(3)->add(2)->add(1);
-
-        $this->assertSame(3, $list->getOrNull(2));
-    }
-
-    public function testGetOrNullAtBoundary(): void
-    {
-        $list = SortedList::forInts();
-        $list->add(1)->add(2)->add(3);
-
-        $this->assertSame(1, $list->getOrNull(0));
-        $this->assertSame(3, $list->getOrNull(2));
-        $this->assertNull($list->getOrNull(3));
+        $this->assertSame(1, $list->getAtOrNull(0));
+        $this->assertSame(3, $list->getAtOrNull(2));
+        $this->assertNull($list->getAtOrNull(3));
     }
 
     private function thenIsSortedAsc(SortedListInterface $list): void

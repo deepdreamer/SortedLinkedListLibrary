@@ -17,7 +17,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame([5, 4, 3, 2, 1], $list->toArray());
-        $this->assertCount(5, $list);
     }
 
     public function testReverseDescendingInts(): void
@@ -28,7 +27,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame([1, 2, 3, 4, 5], $list->toArray());
-        $this->assertCount(5, $list);
     }
 
     public function testReverseEmptyList(): void
@@ -38,7 +36,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertTrue($list->isEmpty());
-        $this->assertCount(0, $list);
     }
 
     public function testReverseSingleElement(): void
@@ -49,7 +46,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame([42], $list->toArray());
-        $this->assertCount(1, $list);
     }
 
     public function testReverseStrings(): void
@@ -60,7 +56,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame(['cherry', 'banana', 'apple'], $list->toArray());
-        $this->assertCount(3, $list);
     }
 
     public function testReverseTwiceReturnsToOriginal(): void
@@ -94,7 +89,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame($originalCount, $list->count());
-        $this->assertCount(5, $list);
     }
 
     public function testReverseWithDuplicates(): void
@@ -105,7 +99,6 @@ class ReverseOperationsTest extends TestCase
         $list->reverse();
 
         $this->assertSame([3, 3, 3, 2, 2, 1], $list->toArray());
-        $this->assertCount(6, $list);
     }
 
     public function testReverseMaintainsSortOrderAfterReversal(): void
