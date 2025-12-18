@@ -5,6 +5,4 @@ parameters:
         - tests
 
     treatPhpDocTypesAsCertain: true
-    ignoreErrors:
-        # Test mocks may have unused union types due to interface requirements
-        - '#never returns (string|float) so it can be removed from the return type#'
+    ignoreErrors: []

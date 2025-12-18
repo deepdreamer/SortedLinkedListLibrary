@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SortedLinkedListLibrary;
 
 use PHPUnit\Framework\TestCase;
-use SortedLinkedListLibrary\Enums\ListType;
 use SortedLinkedListLibrary\Enums\SortDirection;
 use SortedLinkedListLibrary\Exceptions\DifferentListTypesException;
 use SortedLinkedListLibrary\Exceptions\DifferentSortDirectionsException;

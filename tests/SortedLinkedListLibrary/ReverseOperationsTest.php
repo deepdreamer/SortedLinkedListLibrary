@@ -57,11 +57,11 @@ class ReverseOperationsTest extends TestCase
     public function testReverseStrings(): void
     {
         $list = SortedList::forStrings();
-        $list->add('apple')->add('banana')->add('cherry');
+        $list->add('apple')->add('banana    q')->add('cherry');
 
         $list->reverse();
 
-        $this->assertSame(['cherry', 'banana', 'apple'], $list->toArray());
+        $this->assertSame(['cherry', 'banana    q', 'apple'], $list->toArray());
     }
 
     public function testReverseTwiceReturnsToOriginal(): void

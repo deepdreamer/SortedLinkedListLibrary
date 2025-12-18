@@ -16,13 +16,14 @@ use SortedLinkedListLibrary\Exceptions\InvalidTypeException;
 class SortedList implements SortedListInterface
 {
     private ?ListNode $head = null;
+    private ?ListNode $tail = null;
 
     /** @var non-negative-int $count */
     private int $count = 0;
 
     /**
      * Cache for the last insertion point to optimize sequential adds.
-     * Points to the node after which we last inserted, or null if cache is invalid.
+     * Points to the last inserted node (or a nearby insertion hint), or null if cache is invalid.
      * This makes sequential inserts (adding values in sorted order) O(1) instead of O(n).
      */
     private ?ListNode $lastInsertPoint = null;
@@ -90,14 +91,7 @@ class SortedList implements SortedListInterface
             throw IndexOutOfRangeException::create($index, $this->count);
         }
 
-        /** @var ListNode $current */
-        $current = $this->head;
-        for ($i = 0; $i < $index; $i++) {
-            /** @var ListNode $current */
-            $current = $current->next;
-        }
-
-        return $current->value;
+        return $this->nodeAt($index)->value;
     }
 
     /**
@@ -121,6 +115,37 @@ class SortedList implements SortedListInterface
         }
 
         return $this->getAt($index);
+    }
+
+    /**
+     * Get the node at the given index by traversing from the nearest end (head or tail).
+     *
+     * @param int $index
+     * @return ListNode
+     */
+    private function nodeAt(int $index): ListNode
+    {
+        /** @var ListNode $head */
+        $head = $this->head;
+        /** @var ListNode $tail */
+        $tail = $this->tail;
+
+        $half = intdiv($this->count, 2);
+        if ($index <= $half) {
+            $current = $head;
+            for ($i = 0; $i < $index; $i++) {
+                /** @var ListNode $current */
+                $current = $current->next;
+            }
+            return $current;
+        }
+
+        $current = $tail;
+        for ($i = $this->count - 1; $i > $index; $i--) {
+            /** @var ListNode $current */
+            $current = $current->prev;
+        }
+        return $current;
     }
 
 
@@ -147,6 +172,7 @@ class SortedList implements SortedListInterface
         // Empty list so create first value and set head pointing to it
         if ($this->head === null) {
             $this->head = $newNode;
+            $this->tail = $newNode;
             $this->count++;
             $this->invalidateInsertPointCache();
             return $this;
@@ -156,9 +182,22 @@ class SortedList implements SortedListInterface
         if ($this->shouldComeBefore($value, $this->head->value)) {
             // New value should come at the beginning of the list
             $newNode->next = $this->head;
+            $this->head->prev = $newNode;
+            $newNode->prev = null;
             $this->head = $newNode;
             $this->count++;
             $this->invalidateInsertPointCache();
+            return $this;
+        }
+
+        // Fast-path: append to the end when value belongs after current tail.
+        // This keeps sequential inserts O(1) without even touching the cache.
+        if ($this->tail !== null && !$this->shouldComeBefore($value, $this->tail->value)) {
+            $this->tail->next = $newNode;
+            $newNode->prev = $this->tail;
+            $this->tail = $newNode;
+            $this->count++;
+            $this->lastInsertPoint = $newNode;
             return $this;
         }
 
@@ -167,16 +206,44 @@ class SortedList implements SortedListInterface
         $current = null;
 
         if ($this->lastInsertPoint !== null) {
-            // Check if we can use the cache: new value should come after cached point
-            // This works for both ascending and descending:
-            // - Ascending sequential (1, 2, 3...): new value >= cached point
-            // - Descending sequential (3, 2, 1...): new value <= cached point
-            // Both cases: !shouldComeBefore(value, cached) is true
-            if (!$this->shouldComeBefore($value, $this->lastInsertPoint->value)) {
-                // Start from cached point - this makes sequential inserts O(1)
-                $prev = $this->lastInsertPoint;
-                $current = $this->lastInsertPoint->next;
+            // If the next value belongs BEFORE the cached point, we can traverse backwards
+            // in a doubly-linked list instead of restarting from head.
+            if ($this->shouldComeBefore($value, $this->lastInsertPoint->value)) {
+                $current = $this->lastInsertPoint;
+
+                while ($current->prev !== null && $this->shouldComeBefore($value, $current->prev->value)) {
+                    $current = $current->prev;
+                }
+
+                // Insert before $current (and after $current->prev)
+                $prev = $current->prev;
+                if ($prev === null) {
+                    // Should be unreachable because the "insert at head" case is handled above,
+                    // but keep it safe.
+                    $newNode->next = $this->head;
+                    /** @var ListNode $head */
+                    $head = $this->head;
+                    $head->prev = $newNode;
+                    $newNode->prev = null;
+                    $this->head = $newNode;
+                    $this->count++;
+                    $this->invalidateInsertPointCache();
+                    return $this;
+                }
+
+                $prev->next = $newNode;
+                $newNode->prev = $prev;
+                $newNode->next = $current;
+                $current->prev = $newNode;
+                $this->count++;
+                $this->lastInsertPoint = $newNode;
+                return $this;
             }
+
+            // At this point, the value does NOT belong before the cached point,
+            // so it belongs at/after it. Starting from cached point is always safe.
+            $prev = $this->lastInsertPoint;
+            $current = $this->lastInsertPoint->next;
         }
 
         // If cache not usable, start from head
@@ -194,10 +261,17 @@ class SortedList implements SortedListInterface
         // Insert the node
         $prev->next = $newNode;
         $newNode->next = $current;
+        $newNode->prev = $prev;
+        if ($current !== null) {
+            $current->prev = $newNode;
+        } else {
+            // Inserted at the end
+            $this->tail = $newNode;
+        }
         $this->count++;
 
-        // Update cache to point to the node we just inserted after
-        $this->lastInsertPoint = $prev;
+        // Update cache to point to the node we just inserted
+        $this->lastInsertPoint = $newNode;
 
         return $this;
     }
@@ -223,35 +297,46 @@ class SortedList implements SortedListInterface
             throw IndexOutOfRangeException::create($index, $this->count);
         }
 
-        // Single traversal to find and remove (O(n))
+        // Single traversal to find and remove (O(min(index, n-index)))
         if ($index === 0) {
             /** @var ListNode $head */
             $head = $this->head;
             $value = $head->value;
             $this->head = $head->next;
+            if ($this->head !== null) {
+                $this->head->prev = null;
+            } else {
+                $this->tail = null;
+            }
             $this->count--;
+            $this->invalidateInsertPointCache();
             return $value;
         }
 
-        /** @var ListNode $prev */
-        $prev = $this->head;
-        /** @var ListNode|null $current */
-        $current = $prev->next;
-        for ($i = 1; $i < $index; $i++) {
-            if ($current === null) {
-                throw IndexOutOfRangeException::create($index, $this->count);
+        // Fast-path: remove tail
+        if ($index === $this->count - 1) {
+            /** @var ListNode $tail */
+            $tail = $this->tail;
+            $value = $tail->value;
+            $this->tail = $tail->prev;
+            if ($this->tail !== null) {
+                $this->tail->next = null;
+            } else {
+                $this->head = null;
             }
-            $prev = $current;
-            $current = $current->next;
+            $this->count--;
+            $this->invalidateInsertPointCache();
+            return $value;
         }
 
-        if ($current === null) {
-            throw IndexOutOfRangeException::create($index, $this->count);
-        }
-
+        $current = $this->nodeAt($index);
         $value = $current->value;
-        $prev->next = $current->next;
-        // Safe to decrement: we've already validated index is in range, so count >= 1
+        /** @var ListNode $prev */
+        $prev = $current->prev;
+        /** @var ListNode $next */
+        $next = $current->next;
+        $prev->next = $next;
+        $next->prev = $prev;
         $this->count--;
         $this->invalidateInsertPointCache();
 
@@ -290,6 +375,11 @@ class SortedList implements SortedListInterface
             $head = $this->head;
             $removed[] = $head->value;
             $this->head = $head->next;
+            if ($this->head !== null) {
+                $this->head->prev = null;
+            } else {
+                $this->tail = null;
+            }
             if ($this->count > 0) {
                 $this->count--;
             }
@@ -315,77 +405,42 @@ class SortedList implements SortedListInterface
      */
     public function removeLast(int $count = 1): array
     {
-        if ($count <= 0 || $this->head === null) {
+        if ($count <= 0 || $this->tail === null) {
             return [];
         }
 
         $actualCount = min($count, $this->count);
 
-        // Find the (N+1)th-to-last node in single pass using two pointers
-        // If we want to remove last N elements, we need to find the node before them
-        $fast = $this->head;
-        $slow = $this->head;
-        $prev = null;
-
-        // Move fast pointer N steps ahead
-        for ($i = 0; $i < $actualCount; $i++) {
-            if ($fast === null) {
-                break;
-            }
-            $fast = $fast->next;
-        }
-
-        // If fast is null, we're removing from the beginning
-        if ($fast === null) {
-            // Remove all elements
-            $removed = [];
-            $current = $this->head;
-            while ($current !== null) {
-                $removed[] = $current->value;
-                $current = $current->next;
-            }
+        // Removing everything
+        if ($actualCount >= $this->count) {
+            $removed = $this->toArray();
             $this->head = null;
+            $this->tail = null;
             $this->count = 0;
             $this->invalidateInsertPointCache();
             return $removed;
         }
 
-        // Move both pointers until fast reaches the end
-        while ($fast !== null) {
-            if ($slow === null) {
-                break;
-            }
-            /** @var ListNode $slow */
-            $slow = $slow;
-            $prev = $slow;
-            $slow = $slow->next;
-            $fast = $fast->next;
+        // Walk backwards from tail (O(actualCount)) and collect values.
+        $removedReversed = [];
+        $current = $this->tail;
+        for ($i = 0; $i < $actualCount; $i++) {
+            /** @var ListNode $current */
+            $removedReversed[] = $current->value;
+            $current = $current->prev;
         }
 
-        // Now slow points to the first element to remove, prev is before it
-        // Collect removed values in order
-        $removed = [];
-        /** @var ListNode|null $current */
-        $current = $slow;
-        while ($current !== null) {
-            $removed[] = $current->value;
-            $current = $current->next;
-        }
-
-        // Remove the last N elements
-        if ($prev !== null) {
-            $prev->next = null;
-        } else {
-            $this->head = null;
-        }
-        $this->invalidateInsertPointCache();
+        /** @var ListNode $current */
+        $this->tail = $current;
+        $this->tail->next = null;
 
         // Safe to subtract: actualCount is min(count, $this->count), so $this->count >= actualCount
         /** @var int<0, max> $newCount */
         $newCount = $this->count - $actualCount;
         $this->count = max(0, $newCount);
 
-        return $removed;
+        $this->invalidateInsertPointCache();
+        return array_reverse($removedReversed);
     }
 
     /**
@@ -411,6 +466,11 @@ class SortedList implements SortedListInterface
 
         if ($this->head->value === $value) {
             $this->head = $this->head->next; // remove
+            if ($this->head !== null) {
+                $this->head->prev = null;
+            } else {
+                $this->tail = null;
+            }
             if ($this->count > 0) {
                 $this->count--;
             }
@@ -432,6 +492,11 @@ class SortedList implements SortedListInterface
 
             if ($current->value === $value) {
                 $prev->next = $current->next; // remove
+                if ($current->next !== null) {
+                    $current->next->prev = $prev;
+                } else {
+                    $this->tail = $prev;
+                }
                 if ($this->count > 0) {
                     $this->count--;
                 }
@@ -468,7 +533,6 @@ class SortedList implements SortedListInterface
         }
 
         $deletedCount = 0;
-        $prev = null;
         $current = $this->head;
         $isAscending = $this->sortDirection->isAscending();
 
@@ -478,30 +542,34 @@ class SortedList implements SortedListInterface
             }
 
             if ($current->value === $value) {
-                // Remove node
+                $next = $current->next;
+                $prev = $current->prev;
+
+                // Remove current
                 if ($prev !== null) {
-                    $prev->next = $current->next;
+                    $prev->next = $next;
                 } else {
-                    // Removing head
-                    $this->head = $current->next;
-                    $this->invalidateInsertPointCache();
+                    $this->head = $next;
+                }
+                if ($next !== null) {
+                    $next->prev = $prev;
+                } else {
+                    $this->tail = $prev;
                 }
 
                 if ($this->count > 0) {
                     $this->count--;
                 }
                 $deletedCount++;
-                // Don't advance prev when removing - it stays pointing to node before removed section
+
+                $current = $next;
+                continue;
             } elseif ($deletedCount > 0) {
                 // Early break: sorted list, if current value is not equal to the value to remove,
                 // we removed all occurrences of it already
                 break;
-            } else {
-                // Advance prev only when not removing
-                $prev = $current;
             }
 
-            // Always advance current
             $current = $current->next;
         }
 
@@ -542,11 +610,19 @@ class SortedList implements SortedListInterface
 
         // Optimized path: reuse nodes when merging SortedList instances
         if ($other instanceof SortedList) {
-            $this->head = $this->mergeNodes($this->head, $other->head);
-            $this->count += $other->count;
+            if ($this->head === null) {
+                // This list is empty: take over other's chain directly
+                $this->head = $other->head;
+                $this->tail = $other->tail;
+                $this->count = $other->count;
+            } else {
+                $this->head = $this->mergeNodes($this->head, $other->head);
+                $this->count += $other->count;
+            }
 
             // Detach merged list to avoid shared nodes / double-counting.
             $other->head = null;
+            $other->tail = null;
             $other->count = 0;
         } else {
             // Generic path: convert other list to array and merge
@@ -578,18 +654,28 @@ class SortedList implements SortedListInterface
             return $this;
         }
 
-        $prev = null;
         $current = $this->head;
 
-        // Reverse the linked list by reversing pointers
+        // Reverse the linked list by swapping next/prev pointers
         while ($current !== null) {
-            $next = $current->next; // Store the next node
-            $current->next = $prev; // Reverse the pointer
-            $prev = $current; // Move the pointers forward
-            $current = $next; // Move the current pointer forward
+            $next = $current->next; // Store original next
+            $current->next = $current->prev;
+            $current->prev = $next;
+            $current = $next;
         }
 
-        $this->head = $prev;
+        // Swap head and tail
+        $oldHead = $this->head;
+        $this->head = $this->tail;
+        $this->tail = $oldHead;
+
+        // Ensure proper termination
+        /** @var ListNode $head */
+        $head = $this->head;
+        /** @var ListNode $tail */
+        $tail = $this->tail;
+        $head->prev = null;
+        $tail->next = null;
         $this->invalidateInsertPointCache();
 
         return $this;
@@ -667,16 +753,10 @@ class SortedList implements SortedListInterface
 
     public function last(): int|string
     {
-        if ($this->head === null) {
+        if ($this->tail === null) {
             throw EmptyListException::create('last()');
         }
-
-        $current = $this->head;
-        while ($current->next !== null) {
-            $current = $current->next;
-        }
-
-        return $current->value;
+        return $this->tail->value;
     }
 
     public function lastOrNull(): int|string|null
@@ -827,11 +907,16 @@ class SortedList implements SortedListInterface
 
             if ($cmp === 0) {
                 // Found value to remove - remove first occurrence only
+                $next = $current->next;
                 if ($prev !== null) {
-                    $prev->next = $current->next;
+                    $prev->next = $next;
                 } else {
-                    $this->head = $current->next;
-                    $this->invalidateInsertPointCache();
+                    $this->head = $next;
+                }
+                if ($next !== null) {
+                    $next->prev = $prev;
+                } else {
+                    $this->tail = $prev;
                 }
 
                 if ($this->count > 0) {
@@ -845,7 +930,7 @@ class SortedList implements SortedListInterface
                 }
 
                 // Advance current but don't advance prev (it stays at node before removed)
-                $current = $current->next;
+                $current = $next;
             } elseif (($isAscending && $cmp < 0) || (!$isAscending && $cmp > 0)) {
                 // Current value is before value to remove in sorted order - advance in list
                 $prev = $current;
@@ -856,6 +941,9 @@ class SortedList implements SortedListInterface
             }
         }
 
+        if ($removed > 0) {
+            $this->invalidateInsertPointCache();
+        }
         return $removed;
     }
 
@@ -913,11 +1001,16 @@ class SortedList implements SortedListInterface
 
             if ($cmp === 0) {
                 // Found value to remove - remove this occurrence
+                $next = $current->next;
                 if ($prev !== null) {
-                    $prev->next = $current->next;
+                    $prev->next = $next;
                 } else {
-                    $this->head = $current->next;
-                    $this->invalidateInsertPointCache();
+                    $this->head = $next;
+                }
+                if ($next !== null) {
+                    $next->prev = $prev;
+                } else {
+                    $this->tail = $prev;
                 }
 
                 if ($this->count > 0) {
@@ -926,7 +1019,7 @@ class SortedList implements SortedListInterface
                 $removed++;
 
                 // Advance current but don't advance prev (it stays at node before removed)
-                $current = $current->next;
+                $current = $next;
             } elseif (($isAscending && $cmp < 0) || (!$isAscending && $cmp > 0)) {
                 // Current value is before value to remove in sorted order - advance in list
                 $prev = $current;
@@ -940,12 +1033,16 @@ class SortedList implements SortedListInterface
             }
         }
 
+        if ($removed > 0) {
+            $this->invalidateInsertPointCache();
+        }
         return $removed;
     }
 
     public function clear(): self
     {
         $this->head = null;
+        $this->tail = null;
         $this->count = 0;
         $this->invalidateInsertPointCache();
         return $this;
@@ -1007,25 +1104,45 @@ class SortedList implements SortedListInterface
     {
         $this->assertType($value);
 
-        $index = 0;
-        $current = $this->head;
+        if ($this->head === null || $this->tail === null) {
+            return null;
+        }
 
-        while ($current !== null) {
-            if ($current->value === $value) {
-                return $index;
+        // Quick bounds check (O(1)) using both ends.
+        $min = $this->sortDirection->isAscending() ? $this->head->value : $this->tail->value;
+        $max = $this->sortDirection->isAscending() ? $this->tail->value : $this->head->value;
+        if ($this->compare($value, $min) < 0 || $this->compare($value, $max) > 0) {
+            return null;
+        }
+
+        // Bidirectional scan using next/prev.
+        // This can reduce work when the match (or the failure) is near the tail.
+        $left = $this->head;
+        $right = $this->tail;
+        $leftIndex = 0;
+        $rightIndex = $this->count - 1;
+
+        while ($leftIndex <= $rightIndex) {
+            if ($left->value === $value) {
+                return $leftIndex; // first occurrence by definition
             }
 
-            // Early termination: if we've passed where the value should be
-            $cmp = $this->compare($current->value, $value);
-            if ($this->sortDirection->isAscending() && $cmp > 0) {
-                return null; // Value not found, we've passed it
-            }
-            if ($this->sortDirection->isDescending() && $cmp < 0) {
-                return null; // Value not found, we've passed it
+            if ($right->value === $value) {
+                // Walk back to the first occurrence of this value (duplicates are consecutive in a sorted list).
+                while ($right->prev !== null && $right->prev->value === $value) {
+                    $right = $right->prev;
+                    $rightIndex--;
+                }
+                return $rightIndex;
             }
 
-            $current = $current->next;
-            $index++;
+            // Narrow search interval from both ends
+            /** @var ListNode $left */
+            $left = $left->next;
+            /** @var ListNode $right */
+            $right = $right->prev;
+            $leftIndex++;
+            $rightIndex--;
         }
 
         return null;
@@ -1115,20 +1232,34 @@ class SortedList implements SortedListInterface
      */
     public function valuesGreaterThan(int|string $value): self
     {
-        // Collect matching values into array (already sorted since source is sorted)
-        // Then build list directly - O(n) instead of O(n²) when using add()
+        // Doubly-linked optimization:
+        // - ASC: values > $value are a contiguous suffix, so traverse from tail backwards (O(k))
+        // - DESC: values > $value are a contiguous prefix, so traverse from head forwards with early stop (O(k))
         $matchingValues = [];
-        foreach ($this as $val) {
-            $cmp = $this->compare($val, $value);
-            if ($this->sortDirection->isDescending()) {
-                if ($cmp > 0) {
-                    $matchingValues[] = $val;
+        if ($this->tail !== null && $this->sortDirection->isAscending()) {
+            $current = $this->tail;
+            while ($current !== null) {
+                if ($this->compare($current->value, $value) > 0) {
+                    $matchingValues[] = $current->value;
+                    $current = $current->prev;
                 } else {
-                    break; // early stop for descending lists
+                    break;
                 }
-            } else {
-                if ($cmp > 0) {
-                    $matchingValues[] = $val;
+            }
+            $matchingValues = array_reverse($matchingValues);
+        } else {
+            foreach ($this as $val) {
+                $cmp = $this->compare($val, $value);
+                if ($this->sortDirection->isDescending()) {
+                    if ($cmp > 0) {
+                        $matchingValues[] = $val;
+                    } else {
+                        break; // early stop for descending lists
+                    }
+                } else {
+                    if ($cmp > 0) {
+                        $matchingValues[] = $val;
+                    }
                 }
             }
         }
@@ -1158,20 +1289,35 @@ class SortedList implements SortedListInterface
      */
     public function valuesLessThan(int|string $value): self
     {
-        // Collect matching values into array (already sorted since source is sorted)
-        // Then build list directly - O(n) instead of O(n²) when using add()
+        // Doubly-linked optimization:
+        // - DESC: values < $value are a contiguous suffix, so traverse from tail backwards (O(k))
+        // - ASC: values < $value are a contiguous prefix, so traverse from head forwards with early stop (O(k))
         $matchingValues = [];
-        foreach ($this as $val) {
-            $cmp = $this->compare($val, $value);
-            if ($this->sortDirection->isAscending()) {
-                if ($cmp < 0) {
-                    $matchingValues[] = $val;
+        if ($this->tail !== null && $this->sortDirection->isDescending()) {
+            $current = $this->tail;
+            while ($current !== null) {
+                if ($this->compare($current->value, $value) < 0) {
+                    $matchingValues[] = $current->value;
+                    $current = $current->prev;
                 } else {
-                    break; // early stop for ascending lists
+                    break;
                 }
-            } else {
-                if ($cmp < 0) {
-                    $matchingValues[] = $val;
+            }
+            // We collected from smallest→largest; reverse to keep DESC order.
+            $matchingValues = array_reverse($matchingValues);
+        } else {
+            foreach ($this as $val) {
+                $cmp = $this->compare($val, $value);
+                if ($this->sortDirection->isAscending()) {
+                    if ($cmp < 0) {
+                        $matchingValues[] = $val;
+                    } else {
+                        break; // early stop for ascending lists
+                    }
+                } else {
+                    if ($cmp < 0) {
+                        $matchingValues[] = $val;
+                    }
                 }
             }
         }
@@ -1211,6 +1357,7 @@ class SortedList implements SortedListInterface
         }
 
         $prev = $result->head;
+        $prev->prev = null;
         $current = $result->head->next;
         $result->count = 1; // Reset count, we'll recalculate
 
@@ -1218,6 +1365,7 @@ class SortedList implements SortedListInterface
             if ($prev->value !== $current->value) {
                 // Different value, keep it
                 $prev->next = $current;
+                $current->prev = $prev;
                 $prev = $current;
                 $result->count++;
             }
@@ -1227,6 +1375,7 @@ class SortedList implements SortedListInterface
 
         // Terminate the list
         $prev->next = null;
+        $result->tail = $prev;
 
         return $result;
     }
@@ -1406,12 +1555,14 @@ class SortedList implements SortedListInterface
         /** @var ListNode $current */
         $current = $this->head;
         $resultHead = new ListNode($current->value);
+        $resultHead->prev = null;
         $resultCurrent = $resultHead;
         $result->count = 1;
 
         $current = $current->next;
         while ($current !== null) {
             $newNode = new ListNode($current->value);
+            $newNode->prev = $resultCurrent;
             $resultCurrent->next = $newNode;
             $resultCurrent = $newNode;
             $result->count++;
@@ -1419,6 +1570,7 @@ class SortedList implements SortedListInterface
         }
 
         $result->head = $resultHead;
+        $result->tail = $resultCurrent;
         return $result;
     }
 
@@ -1587,9 +1739,29 @@ class SortedList implements SortedListInterface
     private function mergeNodes(?ListNode $a, ?ListNode $b): ?ListNode
     {
         if ($a === null) {
+            $head = $b;
+            $prev = null;
+            $tail = null;
+            while ($head !== null) {
+                $head->prev = $prev;
+                $tail = $head;
+                $prev = $head;
+                $head = $head->next;
+            }
+            $this->tail = $tail;
             return $b;
         }
         if ($b === null) {
+            $head = $a;
+            $prev = null;
+            $tail = null;
+            while ($head !== null) {
+                $head->prev = $prev;
+                $tail = $head;
+                $prev = $head;
+                $head = $head->next;
+            }
+            $this->tail = $tail;
             return $a;
         }
 
@@ -1602,23 +1774,28 @@ class SortedList implements SortedListInterface
             $b = $b->next;
         }
 
+        $head->prev = null;
         $tail = $head;
 
-        // Merge remainder
-        while ($a !== null && $b !== null) {
-            if ($this->shouldComeBefore($a->value, $b->value)) {
+        // Merge remainder (fix prev pointers as we attach)
+        while ($a !== null || $b !== null) {
+            if ($b === null || ($a !== null && $this->shouldComeBefore($a->value, $b->value))) {
                 $tail->next = $a;
+                /** @var ListNode $a */
+                $a->prev = $tail;
+                $tail = $a;
                 $a = $a->next;
             } else {
                 $tail->next = $b;
+                /** @var ListNode $b */
+                $b->prev = $tail;
+                $tail = $b;
                 $b = $b->next;
             }
-            $tail = $tail->next;
         }
 
-        // Attach leftovers
-        $tail->next = $a ?? $b;
-
+        $tail->next = null;
+        $this->tail = $tail;
         return $head;
     }
 
@@ -1650,34 +1827,38 @@ class SortedList implements SortedListInterface
             $listHead = $listHead->next;
         }
 
+        $head->prev = null;
         $tail = $head;
 
-        // Merge remainder
-        while ($arrayIndex < $arrayCount && $listHead !== null) {
-            /** @var int|string $arrayValue */
-            $arrayValue = $sortedArray[$arrayIndex];
-            if ($this->shouldComeBefore($arrayValue, $listHead->value)) {
-                $tail->next = new ListNode($arrayValue);
+        // Merge remainder (fix prev pointers as we attach)
+        while ($arrayIndex < $arrayCount || $listHead !== null) {
+            if ($listHead === null) {
+                /** @var int|string $arrayValue */
+                $arrayValue = $sortedArray[$arrayIndex];
+                $node = new ListNode($arrayValue);
                 $arrayIndex++;
-            } else {
-                $tail->next = $listHead;
+            } elseif ($arrayIndex >= $arrayCount) {
+                $node = $listHead;
                 $listHead = $listHead->next;
+            } else {
+                /** @var int|string $arrayValue */
+                $arrayValue = $sortedArray[$arrayIndex];
+                if ($this->shouldComeBefore($arrayValue, $listHead->value)) {
+                    $node = new ListNode($arrayValue);
+                    $arrayIndex++;
+                } else {
+                    $node = $listHead;
+                    $listHead = $listHead->next;
+                }
             }
-            $tail = $tail->next;
+
+            $tail->next = $node;
+            $node->prev = $tail;
+            $tail = $node;
         }
 
-        // Attach leftovers from array
-        while ($arrayIndex < $arrayCount) {
-            /** @var int|string $arrayValue */
-            $arrayValue = $sortedArray[$arrayIndex];
-            $tail->next = new ListNode($arrayValue);
-            $tail = $tail->next;
-            $arrayIndex++;
-        }
-
-        // Attach leftovers from list
-        $tail->next = $listHead;
-
+        $tail->next = null;
+        $this->tail = $tail;
         return $head;
     }
 
@@ -1689,6 +1870,7 @@ class SortedList implements SortedListInterface
     private function rebuildFromSortedArray(array $sortedValues): void
     {
         $this->head = null;
+        $this->tail = null;
         $this->count = 0;
         $this->invalidateInsertPointCache(); // Invalidate cache when rebuilding
 
@@ -1700,14 +1882,19 @@ class SortedList implements SortedListInterface
         /** @var int|string $firstValue */
         $firstValue = $sortedValues[0];
         $this->head = new ListNode($firstValue);
+        $this->head->prev = null;
         $current = $this->head;
+        $this->tail = $this->head;
         $this->count = 1;
 
         for ($i = 1; $i < count($sortedValues); $i++) {
             /** @var int|string $value */
             $value = $sortedValues[$i];
-            $current->next = new ListNode($value);
-            $current = $current->next;
+            $newNode = new ListNode($value);
+            $newNode->prev = $current;
+            $current->next = $newNode;
+            $current = $newNode;
+            $this->tail = $newNode;
             $this->count++;
         }
     }
@@ -1719,19 +1906,25 @@ class SortedList implements SortedListInterface
     private function arrayToLinkedList(array $sortedArray): ?ListNode
     {
         if (empty($sortedArray)) {
+            $this->tail = null;
             return null;
         }
 
         /** @var int|string $firstValue */
         $firstValue = $sortedArray[0];
         $head = new ListNode($firstValue);
+        $head->prev = null;
         $current = $head;
+        $this->tail = $head;
 
         for ($i = 1; $i < count($sortedArray); $i++) {
             /** @var int|string $value */
             $value = $sortedArray[$i];
-            $current->next = new ListNode($value);
-            $current = $current->next;
+            $newNode = new ListNode($value);
+            $newNode->prev = $current;
+            $current->next = $newNode;
+            $current = $newNode;
+            $this->tail = $newNode;
         }
 
         return $head;

@@ -20,7 +20,7 @@ class QueryMethodsTest extends TestCase
         $list->reverse();
 
         $this->assertSame(SortDirection::DESC, $list->getSortOrder());
-        $this->assertSame([3,2,1], $list->toArray());
+        $this->assertSame([3, 2, 1], $list->toArray());
     }
 
     public function testGetAtOrNullWithValidIndex(): void

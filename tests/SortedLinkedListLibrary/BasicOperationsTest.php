@@ -102,7 +102,10 @@ class BasicOperationsTest extends TestCase
         $list->add('b')->add('a');
 
         $serialized = $list->jsonSerialize();
-        $this->assertIsArray($serialized);
+        $this->assertArrayHasKey('type', $serialized);
+        $this->assertArrayHasKey('ascending', $serialized);
+        $this->assertArrayHasKey('count', $serialized);
+        $this->assertArrayHasKey('values', $serialized);
 
         $json = $list->toJson(JSON_PRETTY_PRINT);
         $this->assertIsString($json);

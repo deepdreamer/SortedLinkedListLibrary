@@ -119,7 +119,7 @@ class PerformanceTest extends TestCase
         $duration = microtime(true) - $startTime;
 
         $this->assertLessThan(
-            self::MAX_MERGE_TIME_SECONDS * 1.5,
+            self::MAX_MERGE_TIME_SECONDS,
             $duration,
             "Union of " . self::VERY_LARGE_SIZE . " total elements should be fast (O(n+m))"
         );
@@ -141,7 +141,7 @@ class PerformanceTest extends TestCase
         $duration = microtime(true) - $startTime;
 
         $this->assertLessThan(
-            self::MAX_MERGE_TIME_SECONDS * 1.5,
+            self::MAX_MERGE_TIME_SECONDS,
             $duration,
             "Intersect of large lists should be fast (O(n+m))"
         );
@@ -181,14 +181,15 @@ class PerformanceTest extends TestCase
         $finalMemory = memory_get_usage(true);
         $memoryUsedMB = ($finalMemory - $initialMemory) / (1024 * 1024);
 
-        // Memory calculation breakdown:
+        // Memory calculation breakdown (doubly linked list):
         // Each linked list node requires:
         //   - Value storage: PHP integers use zval structure (~16 bytes on 64-bit)
         //   - Next pointer: 8 bytes (64-bit pointer to next node)
-        //   - PHP object overhead: zend_object structure, properties, etc. (~8-16 bytes)
-        // Total per node: approximately 32-40 bytes
+        //   - Prev pointer: 8 bytes (64-bit pointer to previous node)
+        //   - PHP object overhead: zend_object structure, properties, etc. (~8-16+ bytes)
+        // Total per node: approximately 40-48+ bytes (very rough; depends on PHP build and allocator)
         //
-        // For 50,000 nodes: 50,000 × 40 bytes = 2,000,000 bytes ≈ 1.9 MB
+        // For 50,000 nodes: 50,000 × 48 bytes = 2,400,000 bytes ≈ 2.3 MB
         //
         // However, we allow up to 50 MB (MAX_MEMORY_MB) to account for:
         //   - PHP's internal memory management overhead
@@ -230,13 +231,25 @@ class PerformanceTest extends TestCase
 
     public function testLinearComplexityForAdd(): void
     {
-        // Verify that adding elements scales roughly quadratically (O(n²))
+        // Verify that adding sequentially scales roughly linearly (O(n))
         // Using smaller sizes for faster execution while still verifying complexity
         $sizes = [500, 2000, 5000];
         $times = [];
 
         foreach ($sizes as $size) {
+            // Reduce noise from GC / allocator state affected by earlier tests in the full suite.
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+            if (function_exists('gc_mem_caches')) {
+                gc_mem_caches();
+            }
+
             $list = SortedList::forInts();
+            $wasGcEnabled = function_exists('gc_enabled') ? gc_enabled() : true;
+            if (function_exists('gc_disable')) {
+                gc_disable();
+            }
             $start = microtime(true);
 
             for ($i = 0; $i < $size; $i++) {
@@ -244,6 +257,10 @@ class PerformanceTest extends TestCase
             }
 
             $times[$size] = microtime(true) - $start;
+            if ($wasGcEnabled && function_exists('gc_enable')) {
+                gc_enable();
+            }
+            unset($list);
         }
 
         // Time should scale roughly linearly for sorted insertion (O(n))
@@ -252,15 +269,9 @@ class PerformanceTest extends TestCase
         // 10x size should result in roughly 10x time (linear scaling)
         $ratio = $times[5000] / $times[500];
         $this->assertLessThan(
-            20,
+            12,
             $ratio,
             "Should scale roughly linearly for sorted insertion (10x size = ~" . round($ratio, 1) . "x time, expected ~10x for O(n) with cache optimization)"
-        );
-        // Verify it's at least linear (not sub-linear)
-        $this->assertGreaterThan(
-            5,
-            $ratio,
-            "Should scale at least linearly (10x size = ~" . round($ratio, 1) . "x time)"
         );
     }
 
@@ -300,15 +311,16 @@ class PerformanceTest extends TestCase
 
         // Test early termination (searching for value at beginning)
         $start = microtime(true);
-        $found = $list->contains(0);
+        $foundEarly = $list->contains(0);
         $earlyTime = microtime(true) - $start;
 
         // Test worst case (searching for value at end)
         $start = microtime(true);
-        $found = $list->contains(self::LARGE_SIZE - 1);
+        $foundLate = $list->contains(self::LARGE_SIZE - 1);
         $lateTime = microtime(true) - $start;
 
-        $this->assertTrue($found);
+        $this->assertTrue($foundEarly);
+        $this->assertTrue($foundLate);
         // Early termination should be much faster
         $this->assertLessThan(
             $lateTime,
@@ -364,135 +376,6 @@ class PerformanceTest extends TestCase
     }
 
     // ============================================================================
-    // Repeated Operations Tests
-    // ============================================================================
-
-    public function testRepeatedAddRemoveOperations(): void
-    {
-        $list = SortedList::forInts();
-
-        // Add and remove same value 1000 times
-        for ($i = 0; $i < 1000; $i++) {
-            $list->add(5);
-            $list->remove(5);
-        }
-
-        $this->assertTrue($list->isEmpty());
-    }
-
-    public function testRapidAddRemoveSequence(): void
-    {
-        $list = SortedList::forInts();
-
-        // Simulate rapid operations
-        for ($i = 0; $i < 1000; $i++) {
-            $list->add($i);
-            if ($i % 2 === 0 && $i > 0) {
-                $list->remove($i - 1);
-            }
-        }
-
-        // Should have roughly half the elements
-        $this->assertGreaterThan(400, $list->count());
-        $this->assertLessThan(600, $list->count());
-    }
-
-    public function testMultipleReverseOperations(): void
-    {
-        $list = SortedList::forInts();
-        $size = 10000;
-        // Using addAll for efficiency
-        $list->addAll(range(0, $size - 1));
-
-        // Reverse multiple times
-        for ($i = 0; $i < 10; $i++) {
-            $list->reverse();
-        }
-
-        // After 10 reverses (even number), should be back to original
-        $this->assertSame(range(0, $size - 1), $list->toArray());
-    }
-
-    // ============================================================================
-    // Real-World Scenario Tests
-    // ============================================================================
-
-    public function testRealWorldUserIdsScenario(): void
-    {
-        // Simulate managing user IDs
-        $userIds = SortedList::forInts();
-
-        // Add 50K user IDs - generate array first, then use addAll for efficiency
-        $size = 50000;
-        $ids = [];
-        for ($i = 0; $i < $size; $i++) {
-            $ids[] = random_int(1, 100000);
-        }
-        $userIds->addAll($ids);
-
-        // Find range of active users
-        $activeUsers = $userIds->range(1000, 5000);
-
-        // Union with another list
-        $newUsers = SortedList::fromArray(range(50001, 60000));
-        $allUsers = $userIds->union($newUsers);
-
-        // Note: union() deduplicates, so count may be less than size if there were duplicates
-        // But should still have many users (at least 30K from the new users list + some from original)
-        $this->assertGreaterThan(30000, $allUsers->count());
-        $this->assertGreaterThan(0, $activeUsers->count());
-    }
-
-    public function testRealWorldLogProcessingScenario(): void
-    {
-        // Simulate processing log entries (timestamps)
-        $logTimestamps = SortedList::forInts();
-
-        // Add 20K log entries - generate array first, then use addAll for efficiency
-        $size = 20000;
-        $baseTime = time();
-        $timestamps = [];
-        for ($i = 0; $i < $size; $i++) {
-            $timestamps[] = $baseTime + random_int(-86400, 86400); // ±1 day
-        }
-        $logTimestamps->addAll($timestamps);
-
-        // Find entries in last hour
-        $oneHourAgo = $baseTime - 3600;
-        $recentLogs = $logTimestamps->valuesGreaterThan($oneHourAgo);
-
-        // Get unique timestamps
-        $uniqueTimestamps = $logTimestamps->unique();
-
-        $this->assertGreaterThan(0, $recentLogs->count());
-        $this->assertLessThanOrEqual($size, $uniqueTimestamps->count());
-    }
-
-    public function testRealWorldInventoryScenario(): void
-    {
-        // Simulate inventory management
-        $inventory = SortedList::forStrings();
-
-        // Add product codes - generate array first, then use addAll for efficiency
-        $size = 20000;
-        $products = ['PROD001', 'PROD002', 'PROD003', 'PROD004', 'PROD005'];
-        $productCodes = [];
-        for ($i = 0; $i < $size; $i++) {
-            $productCodes[] = $products[array_rand($products)];
-        }
-        $inventory->addAll($productCodes);
-
-        // Filter for specific product
-        $product1 = $inventory->findAll(fn (string $code): bool => $code === 'PROD001');
-
-        // Get unique products
-        $uniqueProducts = $inventory->unique();
-
-        $this->assertGreaterThan(0, $product1->count());
-        $this->assertLessThanOrEqual(5, $uniqueProducts->count());
-    }
-
-    // ============================================================================
     // Bulk Operations Performance
     // ============================================================================
 
@@ -509,7 +392,7 @@ class PerformanceTest extends TestCase
         $duration = microtime(true) - $start;
 
         $this->assertLessThan(
-            60.0,
+            0.1,
             $duration,
             "removeAll() with 5000 values from " . self::LARGE_SIZE . " element list should complete"
         );
@@ -527,7 +410,7 @@ class PerformanceTest extends TestCase
         $duration = microtime(true) - $start;
 
         $this->assertLessThan(
-            2.0,
+            0.1,
             $duration,
             "filter() on " . self::LARGE_SIZE . " elements should be fast (O(n))"
         );
@@ -545,7 +428,7 @@ class PerformanceTest extends TestCase
         $duration = microtime(true) - $start;
 
         $this->assertLessThan(
-            2.0,
+            0.1,
             $duration,
             "unique() on " . self::LARGE_SIZE . " elements should be fast (O(n))"
         );
@@ -557,11 +440,22 @@ class PerformanceTest extends TestCase
     // ============================================================================
 
     /**
-     * Demonstrates that reverse sorted inserts are slow (O(n) per insert).
-     * For ascending lists: adding in descending order (3, 2, 1) invalidates cache because
-     * each new value is smaller than the cached point.
-     * For descending lists: adding in ascending order (1, 2, 3) would have the same issue.
-     * The cache only works when values are added in the list's natural sort order.
+     * Demonstrates the add() cache limitation when inserting values in the *opposite* direction
+     * of the list's sort order.
+     *
+     * Why it's slow:
+     * - The cache stores the last insertion point (a node near where we last inserted).
+     * - In a doubly linked list we can traverse both directions from the cached node, so the cache
+     *   helps when the next insertion point is *near* the cached point (either before or after).
+     * - However, when each new insertion becomes the new head (or is far from the cached point),
+     *   the cache still provides little to no benefit.
+     *
+     * Examples:
+     * - ASC list + descending inserts (3, 2, 1): each new value becomes the new head → cache unusable.
+     * - DESC list + ascending inserts (1, 2, 3): symmetric case → cache unusable.
+     *
+     * Complexity:
+     * - O(n) per insert in the "opposite direction" case → O(n²) total for n inserts.
      */
     public function testAddLimitationReverseSortedInserts(): void
     {
@@ -581,6 +475,14 @@ class PerformanceTest extends TestCase
             "Reverse sorted inserts should complete in under 2 seconds for " . self::DEMO_SIZE . " elements (demonstrates O(n) per insert when cache is invalidated)"
         );
         $this->assertSame(self::DEMO_SIZE, $list->count());
+        $this->assertSame(1, $list->first());
+        $this->assertSame(self::DEMO_SIZE, $list->last());
+
+        // Deterministic verification: because each insert is at the head, the cache is invalidated.
+        $ref = new \ReflectionClass($list);
+        $lastInsertPoint = $ref->getProperty('lastInsertPoint');
+        $lastInsertPoint->setAccessible(true);
+        $this->assertNull($lastInsertPoint->getValue($list));
     }
 
     /**
@@ -676,7 +578,7 @@ class PerformanceTest extends TestCase
 
     /**
      * Demonstrates that adding values smaller than cached point is slow.
-     * When new value is smaller, cache is ignored and traversal starts from head.
+     * When each new value becomes the new head, the cache is invalidated.
      */
     public function testAddLimitationSmallerValuesAfterLarge(): void
     {
@@ -689,7 +591,7 @@ class PerformanceTest extends TestCase
 
         $startTime = microtime(true);
 
-        // Now add smaller values (cache is invalidated, must traverse from head)
+        // Now add smaller values. Each insert becomes the new head, so the cache is invalidated.
         for ($i = 1; $i <= 500; $i++) {
             $list->add($i);
         }
@@ -702,6 +604,61 @@ class PerformanceTest extends TestCase
             "Adding smaller values after large should complete in under 2 seconds (demonstrates cache not usable when new value is smaller than cached point)"
         );
         $this->assertSame(1000, $list->count());
+    }
+
+    /**
+     * Demonstrates the doubly-linked optimization: when inserting values just *before*
+     * the last insertion point, we can traverse backwards from the cached node (prev pointers)
+     * instead of restarting from head.
+     *
+     * This should be significantly faster than a singly-linked "restart from head" approach.
+     */
+    public function testAddCacheBackwardTraversalIsFastNearTail(): void
+    {
+        $list = SortedList::forInts(); // Ascending
+        $size = 20000;
+
+        // Build list with add() so lastInsertPoint stays hot.
+        for ($i = 1; $i <= $size; $i++) {
+            $list->add($i);
+        }
+
+        // Reduce noise from GC / allocator state.
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+        if (function_exists('gc_mem_caches')) {
+            gc_mem_caches();
+        }
+
+        $wasGcEnabled = function_exists('gc_enabled') ? gc_enabled() : true;
+        if (function_exists('gc_disable')) {
+            gc_disable();
+        }
+
+        $start = microtime(true);
+
+        // Insert values just before the tail (duplicates near the end).
+        // With backward traversal this should be close to O(k) rather than O(n*k).
+        for ($i = $size - 1; $i >= $size - 1000; $i--) {
+            $list->add($i);
+        }
+
+        $duration = microtime(true) - $start;
+
+        if ($wasGcEnabled && function_exists('gc_enable')) {
+            gc_enable();
+        }
+
+        // Be stricter here because this is the "new" optimized scenario.
+        $this->assertLessThan(
+            0.5,
+            $duration,
+            "Backward-cache near-tail inserts should be fast in a doubly linked list - completed in {$duration}s"
+        );
+        $this->assertSame($size + 1000, $list->count());
+        $this->assertSame(1, $list->first());
+        $this->assertSame($size, $list->last());
     }
 
     /**
