@@ -1,6 +1,6 @@
 # Sorted Linked List Library
 
-A PHP 8.4 library implementing a sorted singly linked list data structure with comprehensive operations for integers and strings.
+A PHP 8.4 library implementing a sorted **doubly linked list** (next + prev pointers) with comprehensive operations for integers and strings.
 
 ## Features
 
@@ -10,7 +10,7 @@ A PHP 8.4 library implementing a sorted singly linked list data structure with c
 - **Efficient operations**: In-place merge and reverse with O(1) space complexity
 - **Iterable**: Implements `IteratorAggregate` for `foreach` support
 - **JSON serializable**: Built-in JSON encoding support
-- **Well-tested**: 302 unit tests with 1,251 assertions
+- **Well-tested**: 290+ unit tests (run via PHPUnit)
 
 ## Requirements
 
@@ -415,7 +415,7 @@ composer test
 Or using Docker:
 
 ```bash
-docker-compose run --rm php vendor/bin/phpunit
+docker compose run --rm php-lib vendor/bin/phpunit -c phpunit.xml
 ```
 
 ## Development
@@ -472,9 +472,9 @@ tests/
 - **Add**: O(n) worst case, O(1) best case (sequential inserts)
 - **Remove**: O(n) - Linear search to find value, then O(1) removal
 - **Contains**: O(n) worst case - Linear search with early termination (can exit early when value is out of range)
-- **Get by index**: O(n) - Linear traversal to reach index
+- **Get by index**: O(min(i, n-i)) - Traverses from head or tail (whichever is closer)
 - **first()**: O(1) - Direct access to head node
-- **last()**: O(n) - Must traverse to end of list
+- **last()**: O(1) - Direct access to tail node (tracked)
 - **isEmpty()**: O(1) - Simple null check
 - **count()**: O(1) - Stored count value
 
@@ -484,8 +484,8 @@ tests/
 - **removeAll()**: O(m log m + n + m) - Sorts values to remove then does single-pass merge-like removal
 - **removeAllAndEveryOccurrence()**: O(m log m + n + m) - Sorts values to remove then does single-pass merge-like removal of all occurrences
 - **removeFirst()**: O(count) - Direct pointer manipulation
-- **removeLast()**: O(n) - Single pass using two-pointer technique to find Nth-to-last element
-- **removeAt()**: O(n) - Single traversal to find and remove
+- **removeLast()**: O(k) where k = min(count, n) - Uses tail + prev pointers (walks backward k steps)
+- **removeAt()**: O(min(i, n-i)) - Traverses from nearest end, then O(1) unlink
 - **clear()**: O(1) - Simply sets head to null
 
 ### List Manipulation
@@ -538,54 +538,60 @@ tests/
 
 ## Performance Benchmarks
 
-The following benchmarks were run on a system with realistic dataset sizes (10K-50K elements). All tests use parallel execution where applicable.
+These are **measured** timings produced by the library’s `PerformanceTest` suite.
 
-### Test Execution Times
+- **Important**: these are *scenario-level* tests (each test usually exercises one primary method and a dataset size).
+  They are not strict “per-method microbenchmarks”, and absolute times will vary by CPU and system load.
 
-```
-testIntersectPerformanceWithLargeLists                   1.04s
-testAddPerformanceWithLargeDataset                       1.02s
-testLinearComplexityForMerge                             1.02s
-testRapidAddRemoveSequence                               0.95s
-testUnionPerformanceWithLargeLists                       0.94s
-testRealWorldUserIdsScenario                             0.94s
-testRealWorldLogProcessingScenario                       0.93s
-testMultipleReverseOperations                            0.93s
-testMergePerformanceWithLargeLists                       0.90s
-testRealWorldInventoryScenario                           0.88s
-testAddPerformanceWithSortedData                         0.87s
-testMemoryUsageWithLargeList                             0.86s
-testWithVeryLargeIntegers                                0.85s
-testAddAllPerformanceWithLargeDataset                    0.84s
-testLinearComplexityForContains                          0.84s
-testMemoryUsageWithStrings                               0.84s
-testFilterPerformanceWithLargeList                       0.83s
-testWithManyDuplicateValues                              0.82s
-testRepeatedAddRemoveOperations                          0.80s
-testLinearComplexityForAdd                               0.80s
-testRemoveAllPerformanceWithLargeList                    0.80s
-testAddPerformanceWithReverseSortedData                  0.80s
-testUniquePerformanceWithLargeList                       0.80s
-testAddAllPerformanceWithLargeDataset                    0.79s
-testWithVeryLongStrings                                  0.78s
+### How to reproduce
+
+```bash
+./profile_tests.sh
 ```
 
-### Benchmark Details
+This runs the `Performance Tests` suite once in the Docker PHP 8.4 container, writes a JUnit XML report
+(`.junit-performance.xml`), and prints per-test execution times.
 
-- **Dataset Sizes**: 
-  - Large: 10,000 elements
-  - Very Large: 50,000 elements
-- **Test Environment**: Docker container with PHP 8.4.15
-- **Parallel Execution**: Tests run with Paratest using 20 processes
-- **Total Test Suite Time**: ~69 seconds for all 24 performance tests
+### Sample results (single run)
 
-### Key Observations
-
-1. **Most operations complete in under 1 second** even with 10K-50K elements
-2. **Sequential inserts**: `testLinearComplexityForAdd` completes in 0.80s
-3. **Union/Merge operations**: Complete in ~1 second for 50K element lists
-4. **Bulk operations**: All complete efficiently
-5. **Real-world scenarios** (user IDs, log processing, inventory) all complete efficiently
+| Test | Time |
+|---|---:|
+| testAddLimitationRandomInserts | 1715.13 ms |
+| testIntersectPerformanceWithLargeLists | 231.49 ms |
+| testUnionPerformanceWithLargeLists | 182.24 ms |
+| testMergePerformanceWithLargeLists | 165.23 ms |
+| testLinearComplexityForMerge | 161.41 ms |
+| testAddPerformanceWithReverseSortedData | 91.25 ms |
+| testAddCacheBackwardTraversalIsFastNearTail | 87.23 ms |
+| testMemoryUsageWithLargeList | 75.07 ms |
+| testRemoveAllAndEveryOccurrencePerformanceOptimization | 59.87 ms |
+| testLinearComplexityForAdd | 34.26 ms |
+| testFilterPerformanceWithLargeList | 27.95 ms |
+| testWithManyDuplicateValues | 27.52 ms |
+| testLinearComplexityForContains | 25.75 ms |
+| testAddAllPerformanceWithLargeDataset | 25.05 ms |
+| testAddPerformanceWithLargeDataset | 24.87 ms |
+| testRemoveAllPerformanceWithLargeList | 24.39 ms |
+| testUniquePerformanceWithLargeList | 23.04 ms |
+| testAddLimitationAlternatingValues | 21.47 ms |
+| testMemoryUsageWithStrings | 18.73 ms |
+| testAddPerformanceWithSortedData | 17.09 ms |
+| testCopyPerformanceIsLinear | 16.33 ms |
+| testAddLimitationAfterStructuralModifications | 13.90 ms |
+| testFromIterablePerformanceUsesOptimization | 11.21 ms |
+| testRemoveAllPerformanceOptimization | 10.30 ms |
+| testFromArrayPerformanceUsesOptimization | 9.43 ms |
+| testAddLimitationReverseSortedInserts | 9.21 ms |
+| testAddLimitationComparisonSequentialVsReverse | 7.88 ms |
+| testCacheWorksForDescendingSequentialInserts | 7.83 ms |
+| testCacheInvalidatedAfterMerge | 6.72 ms |
+| testAddLimitationSmallerValuesAfterLarge | 5.56 ms |
+| testCacheInvalidatedAfterFilter | 3.96 ms |
+| testCacheInvalidatedAfterReverse | 3.25 ms |
+| testCacheInvalidatedAfterClear | 2.94 ms |
+| testCacheInvalidatedAfterUnique | 1.96 ms |
+| testWithVeryLargeIntegers | 0.39 ms |
+| testWithVeryLongStrings | 0.26 ms |
 
 ## Error Handling
 

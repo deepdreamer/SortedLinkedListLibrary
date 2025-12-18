@@ -4,35 +4,40 @@ echo "Profiling Performance Tests..."
 echo "================================"
 echo ""
 
-# Get list of test methods
-TESTS=$(docker-compose run --rm php-lib vendor/bin/phpunit --testsuite 'Performance Tests' --list-tests 2>/dev/null | grep '::' | sed 's/.*::\(.*\)/\1/')
+set -euo pipefail
 
-declare -A times
+# Prefer Docker Compose v2 syntax (docker compose)
+DC="docker compose"
 
-for test in $TESTS; do
-    echo -n "Running $test... "
-    START=$(date +%s.%N)
-    docker-compose run --rm php-lib vendor/bin/phpunit --filter "$test" --testsuite 'Performance Tests' > /dev/null 2>&1
-    EXIT_CODE=$?
-    END=$(date +%s.%N)
-    DURATION=$(echo "$END - $START" | bc)
-    
-    if [ $EXIT_CODE -eq 0 ]; then
-        echo "✓ (${DURATION}s)"
-        times["$test"]=$DURATION
-    else
-        echo "✗ FAILED (${DURATION}s)"
-        times["$test"]=$DURATION
-    fi
-done
+# Run the whole Performance Tests suite once, emit JUnit XML, then parse per-test times.
+# This measures the actual PHPUnit-reported time for each testcase (no container-start noise),
+# and avoids Python by using PHP to parse the XML.
+JUNIT_PATH="/app/.junit-performance.xml"
+
+echo "Running Performance Tests once (JUnit timing enabled)..."
+$DC run --rm php-lib sh -lc "vendor/bin/phpunit -c phpunit.xml --testsuite 'Performance Tests' --log-junit '${JUNIT_PATH}' >/dev/null"
 
 echo ""
 echo "================================"
 echo "Test Execution Times (sorted):"
 echo "================================"
 
-# Sort by time (descending)
-for test in "${!times[@]}"; do
-    echo "${times[$test]} $test"
-done | sort -rn | awk '{printf "%-50s %10.2fs\n", $2, $1}'
+$DC run --rm php-lib sh -lc "php -r '
+\$file = \"${JUNIT_PATH}\";
+\$xml = simplexml_load_file(\$file);
+if (!\$xml) { fwrite(STDERR, \"Failed to parse JUnit XML\\n\"); exit(1); }
+\$cases = \$xml->xpath(\"//testcase\") ?: [];
+\$rows = [];
+foreach (\$cases as \$tc) {
+    \$time = (float) (\$tc[\"time\"] ?? 0);
+    \$name = (string) (\$tc[\"name\"] ?? \"\");
+    \$class = (string) (\$tc[\"classname\"] ?? \"\");
+    \$rows[] = [\$time, \$class, \$name];
+}
+usort(\$rows, fn(\$a, \$b) => \$b[0] <=> \$a[0]);
+foreach (\$rows as [\$t, \$cls, \$name]) {
+    \$label = \$cls !== \"\" ? \"{\$cls}::{\$name}\" : \$name;
+    printf(\"%-70s %10.2f ms\\n\", \$label, \$t * 1000);
+}
+'"
 
