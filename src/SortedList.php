@@ -73,9 +73,6 @@ class SortedList implements SortedListInterface
     /**
      * Get the element at the specified index.
      *
-     * Time complexity: O(n) where n is the index (worst case: O(n) for last element)
-     * Space complexity: O(1)
-     *
      * Edge cases:
      * - Negative indices throw IndexOutOfRangeException
      * - Indices >= list size throw IndexOutOfRangeException
@@ -96,9 +93,6 @@ class SortedList implements SortedListInterface
 
     /**
      * Get the element at the specified index, or null if out of range.
-     *
-     * Time complexity: O(n) where n is the index (worst case: O(n) for last element)
-     * Space complexity: O(1)
      *
      * Edge cases:
      * - Negative indices return null (no exception thrown)
@@ -153,7 +147,6 @@ class SortedList implements SortedListInterface
      * Insert while keeping the list sorted.
      *
      * Time complexity: O(n) worst case, O(1) best case (sequential inserts)
-     * Space complexity: O(1)
      *
      * Optimizations:
      * - Uses insertion point cache to optimize sequential adds (values in sorted order)
@@ -279,8 +272,7 @@ class SortedList implements SortedListInterface
     /**
      * Remove and return the element at the specified index.
      *
-     * Time complexity: O(n) where n is the index + O(n) for removal = O(n)
-     * Space complexity: O(1)
+     * Time complexity: O(min(i, n-i)) - Traverses from nearest end
      *
      * Edge cases:
      * - Negative indices throw IndexOutOfRangeException
@@ -346,9 +338,6 @@ class SortedList implements SortedListInterface
     /**
      * Remove and return the first N elements from the list.
      *
-     * Time complexity: O(count) - direct pointer manipulation
-     * Space complexity: O(count) for the returned array
-     *
      * Edge cases:
      * - If count is 0 or negative, returns empty array
      * - If count exceeds list size, returns all elements
@@ -392,8 +381,7 @@ class SortedList implements SortedListInterface
     /**
      * Remove and return the last N elements from the list.
      *
-     * Time complexity: O(n) - single pass to find Nth-to-last element
-     * Space complexity: O(count) for the returned array
+     * Time complexity: O(k) where k = min(count, n) - Uses tail + prev pointers
      *
      * Edge cases:
      * - If count is 0 or negative, returns empty array
@@ -445,9 +433,6 @@ class SortedList implements SortedListInterface
 
     /**
      * Remove the first occurrence of the given value.
-     *
-     * Time complexity: O(n) in the worst case
-     * Space complexity: O(1)
      *
      * Uses early termination optimization: stops searching once we've passed
      * the value's position in the sorted list.
@@ -513,9 +498,6 @@ class SortedList implements SortedListInterface
 
     /**
      * Remove all occurrences of the given value.
-     *
-     * Time complexity: O(n) - single pass through the list
-     * Space complexity: O(1)
      *
      * Uses early termination optimization: stops searching once we've passed
      * all occurrences of the value in the sorted list.
@@ -641,7 +623,6 @@ class SortedList implements SortedListInterface
 
     /**
      * Reverse the list in-place and flip the sort order.
-     * O(n) time complexity, O(1) space complexity.
      */
     public function reverse(): self
     {
@@ -693,9 +674,6 @@ class SortedList implements SortedListInterface
 
     /**
      * Check if the list contains a value.
-     *
-     * Time complexity: O(n) in the worst case, but uses early termination
-     * Space complexity: O(1)
      *
      * Early termination: stops searching once we've passed the value's
      * position in the sorted list (since values are sorted).

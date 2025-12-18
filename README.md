@@ -470,13 +470,12 @@ tests/
 ### Core Operations
 
 - **Add**: O(n) worst case, O(1) best case (sequential inserts)
-- **Remove**: O(n) - Linear search to find value, then O(1) removal
+- **Remove**: O(n) - Linear search to find value
 - **Contains**: O(n) worst case - Linear search with early termination (can exit early when value is out of range)
 - **Get by index**: O(min(i, n-i)) - Traverses from head or tail (whichever is closer)
 - **first()**: O(1) - Direct access to head node
 - **last()**: O(1) - Direct access to tail node (tracked)
-- **isEmpty()**: O(1) - Simple null check
-- **count()**: O(1) - Stored count value
+
 
 ### Bulk Operations
 
@@ -485,8 +484,7 @@ tests/
 - **removeAllAndEveryOccurrence()**: O(m log m + n + m) - Sorts values to remove then does single-pass merge-like removal of all occurrences
 - **removeFirst()**: O(count) - Direct pointer manipulation
 - **removeLast()**: O(k) where k = min(count, n) - Uses tail + prev pointers (walks backward k steps)
-- **removeAt()**: O(min(i, n-i)) - Traverses from nearest end, then O(1) unlink
-- **clear()**: O(1) - Simply sets head to null
+- **removeAt()**: O(min(i, n-i)) - Traverses from nearest end
 
 ### List Manipulation
 
@@ -496,10 +494,8 @@ tests/
 
 ### Search and Filtering
 
-- **find()**: O(n) - Linear search until predicate matches
 - **findAll()**: O(n) time, O(k) space - Collects matching values then builds list in O(k) where k is number of matches
 - **filter()**: O(n) - Collects values to keep then rebuilds list in O(k) where k is kept items
-- **indexOf()**: O(n) - Linear search for value with early termination
 
 ### Range Queries
 
@@ -523,18 +519,15 @@ tests/
 
 ### Conversion
 
-- **toArray()**: O(n) time, O(n) space - Linear traversal to build array
-- **toJson()**: O(n) time, O(n) space - Calls toArray() then json_encode()
+- **toArray()**: O(n) time, O(n) space
+- **toJson()**: O(n) time, O(n) space
 
 ### Notes
 
 - All operations maintain the sorted order of the list
 - Sequential inserts (adding values in sorted order) are O(1) each
 - Early termination is used in `contains()`, `valuesGreaterThan()`, and `valuesLessThan()` when possible
-- Space complexity for operations returning new lists is proportional to result size
-- Worst-case complexities assume no early termination benefits
 - Operations that modify the list in-place (like `merge()`, `reverse()`) have O(1) space complexity
-- Operations that return new lists have space complexity proportional to the result size
 
 ## Performance Benchmarks
 
