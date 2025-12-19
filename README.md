@@ -656,10 +656,6 @@ The library handles various edge cases gracefully:
 - Mixing int and string values is prevented
 - Clear error messages when type violations occur
 
-## License
-
-This library is open-source software. See the license file for details.
-
 ## Author
 
 **davidkosvica** - david.kosvica@gmail.com
