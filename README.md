@@ -27,7 +27,7 @@ Add the repository to your `composer.json`:
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/yourusername/sorted-linked-list-library"
+            "url": "https://github.com/deepdreamer/SortedLinkedListLibrary"
         }
     ],
     "require": {
