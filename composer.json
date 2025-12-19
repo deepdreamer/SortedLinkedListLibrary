@@ -1,5 +1,5 @@
 {
-    "name": "david/sorted-linked-list-library",
+    "name": "deepdreamer/sorted-linked-list-library",
     "description": "Simple library implementing sorted linked list.",
     "type": "library",
     "autoload": {
